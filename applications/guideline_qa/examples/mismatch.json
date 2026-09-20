@@ -1,0 +1,164 @@
+{
+  "input": {
+    "question": "Kelora",
+    "context": {
+      "population": "child",
+      "setting": "clinic"
+    },
+    "filters": []
+  },
+  "responses": {
+    "reason": [
+      {
+        "action": "search",
+        "arguments": {
+          "query": "Kelora",
+          "limit": 12
+        }
+      },
+      {
+        "action": "read",
+        "arguments": {
+          "corpus_id": {
+            "$input": "observations.0.result.0.revision"
+          },
+          "evidence_id": "guide1:2:0"
+        }
+      },
+      {
+        "action": "submit",
+        "result": {
+          "title": "Synthetic guideline answer",
+          "claims": [
+            {
+              "id": "C1",
+              "text": "For fictional Kelora in adults, request a green token review.",
+              "evidence_ids": [
+                "guide1:2:0"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "action": "search",
+        "arguments": {
+          "query": "Kelora",
+          "limit": 12
+        }
+      },
+      {
+        "action": "read",
+        "arguments": {
+          "corpus_id": {
+            "$input": "observations.0.result.0.revision"
+          },
+          "evidence_id": "guide1:2:0"
+        }
+      },
+      {
+        "action": "submit",
+        "result": {
+          "title": "Synthetic guideline answer",
+          "claims": [
+            {
+              "id": "C1",
+              "text": "For fictional Kelora in adults, request a green token review.",
+              "evidence_ids": [
+                "guide1:2:0"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "support.match": [
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide1:2:0"
+            ],
+            "decision": "support",
+            "reason": "Population mismatch: no applicable evidence."
+          }
+        ]
+      },
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide1:2:0"
+            ],
+            "decision": "support",
+            "reason": "Population mismatch: no applicable evidence."
+          }
+        ]
+      }
+    ],
+    "support.audit": [
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide1:2:0"
+            ],
+            "decision": "insufficient",
+            "reason": "Population mismatch: no applicable evidence."
+          }
+        ]
+      },
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide1:2:0"
+            ],
+            "decision": "insufficient",
+            "reason": "Population mismatch: no applicable evidence."
+          }
+        ]
+      }
+    ],
+    "support.adjudicate": [
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide1:2:0"
+            ],
+            "decision": "insufficient",
+            "reason": "Population mismatch: no applicable evidence."
+          }
+        ]
+      },
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide1:2:0"
+            ],
+            "decision": "insufficient",
+            "reason": "Population mismatch: no applicable evidence."
+          }
+        ]
+      }
+    ],
+    "output_check": [
+      {
+        "status": "pass",
+        "findings": []
+      },
+      {
+        "status": "pass",
+        "findings": []
+      }
+    ]
+  }
+}

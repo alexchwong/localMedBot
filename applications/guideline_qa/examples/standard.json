@@ -1,0 +1,164 @@
+{
+  "input": {
+    "question": "Lumora",
+    "context": {
+      "population": "adult",
+      "setting": "clinic"
+    },
+    "filters": []
+  },
+  "responses": {
+    "reason": [
+      {
+        "action": "search",
+        "arguments": {
+          "query": "Lumora",
+          "limit": 12
+        }
+      },
+      {
+        "action": "read",
+        "arguments": {
+          "corpus_id": {
+            "$input": "observations.0.result.0.revision"
+          },
+          "evidence_id": "guide1:0:0"
+        }
+      },
+      {
+        "action": "submit",
+        "result": {
+          "title": "Synthetic guideline answer",
+          "claims": [
+            {
+              "id": "C1",
+              "text": "For fictional Lumora in adults in clinic, consider observation with a blue diary.",
+              "evidence_ids": [
+                "guide1:0:0"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "action": "search",
+        "arguments": {
+          "query": "Lumora",
+          "limit": 12
+        }
+      },
+      {
+        "action": "read",
+        "arguments": {
+          "corpus_id": {
+            "$input": "observations.0.result.0.revision"
+          },
+          "evidence_id": "guide1:0:0"
+        }
+      },
+      {
+        "action": "submit",
+        "result": {
+          "title": "Synthetic guideline answer",
+          "claims": [
+            {
+              "id": "C1",
+              "text": "For fictional Lumora in adults in clinic, consider observation with a blue diary.",
+              "evidence_ids": [
+                "guide1:0:0"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "support.match": [
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide1:0:0"
+            ],
+            "decision": "support",
+            "reason": "Applicable fictional source supports this proposition."
+          }
+        ]
+      },
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide1:0:0"
+            ],
+            "decision": "support",
+            "reason": "Applicable fictional source supports this proposition."
+          }
+        ]
+      }
+    ],
+    "support.audit": [
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide1:0:0"
+            ],
+            "decision": "support",
+            "reason": "Applicable fictional source supports this proposition."
+          }
+        ]
+      },
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide1:0:0"
+            ],
+            "decision": "support",
+            "reason": "Applicable fictional source supports this proposition."
+          }
+        ]
+      }
+    ],
+    "support.adjudicate": [
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide1:0:0"
+            ],
+            "decision": "support",
+            "reason": "Applicable fictional source supports this proposition."
+          }
+        ]
+      },
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide1:0:0"
+            ],
+            "decision": "support",
+            "reason": "Applicable fictional source supports this proposition."
+          }
+        ]
+      }
+    ],
+    "output_check": [
+      {
+        "status": "pass",
+        "findings": []
+      },
+      {
+        "status": "pass",
+        "findings": []
+      }
+    ]
+  }
+}

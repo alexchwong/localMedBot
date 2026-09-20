@@ -1,0 +1,130 @@
+{
+  "input": {
+    "question": "Unknownara",
+    "context": {
+      "population": "adult",
+      "setting": "clinic"
+    },
+    "filters": []
+  },
+  "responses": {
+    "reason": [
+      {
+        "action": "search",
+        "arguments": {
+          "query": "Unknownara",
+          "limit": 12
+        }
+      },
+      {
+        "action": "submit",
+        "result": {
+          "title": "Synthetic guideline answer",
+          "claims": [
+            {
+              "id": "C1",
+              "text": "An option is established for fictional Unknownara.",
+              "evidence_ids": []
+            }
+          ]
+        }
+      },
+      {
+        "action": "search",
+        "arguments": {
+          "query": "Unknownara",
+          "limit": 12
+        }
+      },
+      {
+        "action": "submit",
+        "result": {
+          "title": "Synthetic guideline answer",
+          "claims": [
+            {
+              "id": "C1",
+              "text": "An option is established for fictional Unknownara.",
+              "evidence_ids": []
+            }
+          ]
+        }
+      }
+    ],
+    "support.match": [
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [],
+            "decision": "insufficient",
+            "reason": "No evidence available in the demonstration corpus."
+          }
+        ]
+      },
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [],
+            "decision": "insufficient",
+            "reason": "No evidence available in the demonstration corpus."
+          }
+        ]
+      }
+    ],
+    "support.audit": [
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [],
+            "decision": "insufficient",
+            "reason": "No evidence available in the demonstration corpus."
+          }
+        ]
+      },
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [],
+            "decision": "insufficient",
+            "reason": "No evidence available in the demonstration corpus."
+          }
+        ]
+      }
+    ],
+    "support.adjudicate": [
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [],
+            "decision": "insufficient",
+            "reason": "No evidence available in the demonstration corpus."
+          }
+        ]
+      },
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [],
+            "decision": "insufficient",
+            "reason": "No evidence available in the demonstration corpus."
+          }
+        ]
+      }
+    ],
+    "output_check": [
+      {
+        "status": "pass",
+        "findings": []
+      },
+      {
+        "status": "pass",
+        "findings": []
+      }
+    ]
+  }
+}

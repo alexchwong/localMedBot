@@ -1,0 +1,68 @@
+version: 1
+nodes:
+- id: candidates
+  module: retrieve
+  inputs:
+    data: run.input
+  config:
+    limit: 12
+- id: reason
+  module: reason
+  needs:
+  - candidates
+  inputs:
+    task: run.input
+    candidates: artifacts.candidates
+  config:
+    prompt: reason.md
+    mode: agent
+    max_turns: 6
+    tools:
+    - evidence.search
+    - evidence.read
+  schema: claims.schema.json
+  repairs: 1
+- id: collected
+  module: retrieve
+  needs:
+  - reason
+  inputs:
+    initial: artifacts.candidates
+    discovered: artifacts.reason.retrieved
+  config:
+    mode: collect
+    limit: 12
+- id: output
+  module: render
+  needs:
+  - support.final
+  inputs:
+    data: artifacts.support.final
+  config:
+    template: output.md
+    title: "Guideline answer \u2014 synthetic example"
+- id: output_check
+  module: content_check
+  needs:
+  - output
+  inputs:
+    target: artifacts.output
+    source: artifacts.support.final
+    task: run.input
+  config:
+    prompt: check.md
+    accepted_only: true
+  review:
+    target: reason
+    max_revisions: 1
+- id: approval
+  module: human_review
+  needs:
+  - output_check
+  inputs:
+    output: artifacts.output
+includes:
+- evidence-chain.yaml
+output: output
+review_node: approval
+revision_target: reason

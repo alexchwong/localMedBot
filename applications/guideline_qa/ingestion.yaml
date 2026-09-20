@@ -1,0 +1,42 @@
+formats:
+- json
+- text
+- markdown
+mode: direct
+chunk_chars: 2000
+default_indexes:
+  population: adult
+  setting: clinic
+  published: '2026-01-01'
+indexes:
+  population:
+    type: string
+    values:
+    - adult
+    - child
+    required: true
+  setting:
+    type: string
+    values:
+    - clinic
+    - emergency
+    required: true
+  published:
+    type: date
+    required: true
+  priority:
+    type: number
+item_schema:
+  type: object
+  properties:
+    id: &id001
+      type: string
+      minLength: 1
+    text: *id001
+    indexes:
+      type: object
+  required:
+  - id
+  - text
+  - indexes
+  additionalProperties: false

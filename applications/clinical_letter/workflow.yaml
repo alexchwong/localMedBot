@@ -1,0 +1,76 @@
+version: 1
+nodes:
+- id: records
+  module: ingest
+  inputs:
+    data: run.input
+  config:
+    profile: ingestion.yaml
+- id: facts
+  module: reason
+  needs:
+  - records
+  inputs:
+    source: artifacts.records
+    task: run.input
+  config:
+    prompt: extract.md
+    role: extraction
+  schema: facts.schema.json
+  repairs: 1
+- id: facts_check
+  module: content_check
+  needs:
+  - facts
+  inputs:
+    target: artifacts.facts
+    source: artifacts.records
+    task: run.input
+  config:
+    prompt: check.md
+    references: true
+  review:
+    target: facts
+    max_revisions: 1
+- id: draft
+  module: reason
+  needs:
+  - facts_check
+  inputs:
+    source: artifacts.facts
+    task: run.input
+  config:
+    prompt: draft.md
+  schema: claims.schema.json
+  repairs: 1
+- id: draft_check
+  module: content_check
+  needs:
+  - draft
+  inputs:
+    target: artifacts.draft
+    source: artifacts.facts
+    task: run.input
+  config:
+    prompt: check.md
+    coverage: true
+  review:
+    target: draft
+    max_revisions: 1
+- id: output
+  module: render
+  needs:
+  - draft_check
+  inputs:
+    data: artifacts.draft
+  config:
+    template: output.md
+- id: approval
+  module: human_review
+  needs:
+  - output
+  inputs:
+    output: artifacts.output
+output: output
+review_node: approval
+revision_target: draft

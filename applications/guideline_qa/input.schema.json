@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "question": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context": {
+      "type": "object"
+    },
+    "filters": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "required": [
+    "question",
+    "context",
+    "filters"
+  ],
+  "additionalProperties": false
+}

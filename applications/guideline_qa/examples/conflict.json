@@ -1,0 +1,172 @@
+{
+  "input": {
+    "question": "Zelora",
+    "context": {
+      "population": "adult",
+      "setting": "clinic"
+    },
+    "filters": []
+  },
+  "responses": {
+    "reason": [
+      {
+        "action": "search",
+        "arguments": {
+          "query": "Zelora",
+          "limit": 12
+        }
+      },
+      {
+        "action": "read",
+        "arguments": {
+          "corpus_id": {
+            "$input": "observations.0.result.0.revision"
+          },
+          "evidence_id": "guide3:0:0"
+        }
+      },
+      {
+        "action": "submit",
+        "result": {
+          "title": "Synthetic guideline answer",
+          "claims": [
+            {
+              "id": "C1",
+              "text": "The orange option is appropriate for fictional Zelora.",
+              "evidence_ids": [
+                "guide3:0:0",
+                "guide3:1:0"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "action": "search",
+        "arguments": {
+          "query": "Zelora",
+          "limit": 12
+        }
+      },
+      {
+        "action": "read",
+        "arguments": {
+          "corpus_id": {
+            "$input": "observations.0.result.0.revision"
+          },
+          "evidence_id": "guide3:0:0"
+        }
+      },
+      {
+        "action": "submit",
+        "result": {
+          "title": "Synthetic guideline answer",
+          "claims": [
+            {
+              "id": "C1",
+              "text": "The orange option is appropriate for fictional Zelora.",
+              "evidence_ids": [
+                "guide3:0:0",
+                "guide3:1:0"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "support.match": [
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide3:0:0",
+              "guide3:1:0"
+            ],
+            "decision": "support",
+            "reason": "Fictional sources disagree; unresolved."
+          }
+        ]
+      },
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide3:0:0",
+              "guide3:1:0"
+            ],
+            "decision": "support",
+            "reason": "Fictional sources disagree; unresolved."
+          }
+        ]
+      }
+    ],
+    "support.audit": [
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide3:0:0",
+              "guide3:1:0"
+            ],
+            "decision": "contradiction",
+            "reason": "Fictional sources disagree; unresolved."
+          }
+        ]
+      },
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide3:0:0",
+              "guide3:1:0"
+            ],
+            "decision": "contradiction",
+            "reason": "Fictional sources disagree; unresolved."
+          }
+        ]
+      }
+    ],
+    "support.adjudicate": [
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide3:0:0",
+              "guide3:1:0"
+            ],
+            "decision": "contradiction",
+            "reason": "Fictional sources disagree; unresolved."
+          }
+        ]
+      },
+      {
+        "assessments": [
+          {
+            "claim_id": "C1",
+            "evidence_ids": [
+              "guide3:0:0",
+              "guide3:1:0"
+            ],
+            "decision": "contradiction",
+            "reason": "Fictional sources disagree; unresolved."
+          }
+        ]
+      }
+    ],
+    "output_check": [
+      {
+        "status": "pass",
+        "findings": []
+      },
+      {
+        "status": "pass",
+        "findings": []
+      }
+    ]
+  }
+}

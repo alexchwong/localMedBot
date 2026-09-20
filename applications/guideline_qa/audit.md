@@ -1,0 +1,1 @@
+Independently audit every assigned claim/evidence pair. Assess full proposition, population and setting. Use only positively assigned evidence IDs. Return exactly one assessment per claim. Disagreement must be explicit; do not simply follow the matcher.

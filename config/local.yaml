@@ -1,0 +1,8 @@
+provider: http
+base_url: http://127.0.0.1:1234/v1
+model: your-loaded-model
+api_key_env: LOCALMEDBOT_API_KEY
+max_tokens: 4096
+timeout: 60
+temperature: 0
+json_mode: true

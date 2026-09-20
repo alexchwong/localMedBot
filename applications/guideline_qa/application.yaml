@@ -1,0 +1,13 @@
+id: guideline_qa
+name: Guideline QA
+version: 0.1.0
+workflow: workflow.yaml
+policy: policy.yaml
+input_schema: input.schema.json
+ingestion: ingestion.yaml
+corpus: corpus.json
+examples:
+- standard
+- mismatch
+- conflict
+- no_evidence

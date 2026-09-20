@@ -1,0 +1,210 @@
+{
+  "verified_at": "2026-09-20T10:17:39.672805+00:00",
+  "python": "3.12.14",
+  "platform": "Linux",
+  "installed_package": true,
+  "verification_context": "Fresh virtual environment; non-editable package installed from extracted git archive; application assets and tests from that archive.",
+  "tests_run": 47,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "elapsed_seconds": 12.607,
+  "live_model_acceptance": "blocked: no configured real endpoint/credentials",
+  "dependencies": {
+    "localMedBot": "0.1.0",
+    "PyYAML": "6.0.3",
+    "jsonschema": "4.26.0",
+    "Flask": "3.1.3",
+    "playwright": "1.63.0"
+  },
+  "tests": [
+    {
+      "test": "test_browser.BrowserTests.test_guideline_import_and_unresolved_answer",
+      "status": "pass"
+    },
+    {
+      "test": "test_browser.BrowserTests.test_letter_review_revision_and_source_inspection",
+      "status": "pass"
+    },
+    {
+      "test": "test_browser.BrowserTests.test_source_text_cannot_execute_script",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.AdditionalBoundaries.test_agent_discovery_extends_initial_candidate_envelope",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.AdditionalBoundaries.test_arbitrary_index_query_and_changed_schema",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.AdditionalBoundaries.test_crash_after_failed_review_commit_cannot_skip_revision",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.AdditionalBoundaries.test_crash_after_human_gate_commit_still_requires_approval",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.AdditionalBoundaries.test_elapsed_budget_exhaustion_blocks_release",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.AdditionalBoundaries.test_required_gate_cannot_be_conditionally_skipped",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.AdditionalBoundaries.test_runtime_model_ingestion_is_persisted_and_validated",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.AdditionalBoundaries.test_unknown_tool_arguments_fail_cleanly",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.CompilerTests.test_compile_rejects_invalid_graph_and_contracts",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.CompilerTests.test_configuration_variation_and_registered_subclass",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.CompilerTests.test_registry_duplicate_and_schema_errors",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.CompilerTests.test_skipped_required_input_is_not_success",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.KnowledgeTests.test_arbitrary_typed_indexes_and_cardinality",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.KnowledgeTests.test_case_isolation_and_frozen_corpus_view",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.KnowledgeTests.test_idempotent_import_and_atomic_failure",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.KnowledgeTests.test_overlay_and_input_reordering",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.KnowledgeTests.test_query_filters_and_scope",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.KnowledgeTests.test_text_partition_locators_and_model_extraction",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_agent_unknown_action_and_nontermination",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_all_examples_run_and_approve",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_auditor_cannot_add_unassigned_support",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_budgets_are_global_and_persist",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_crash_before_commit_resumes_and_replays_response",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_failed_review_revises_then_passes",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_invented_evidence_and_missing_assessment",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_reject_and_cancel_do_not_approve",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_repair_exhaustion",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_repeated_review_failure_blocks",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_required_fact_omission_rejected_even_when_reviewer_passes",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_revision_invalidates_approval_and_preserves_ancestors",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_snapshot_independent_of_later_assets",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_supported_vs_unresolved_guideline",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_syntax_and_schema_repairs",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_tool_denial_and_cross_scope_arguments",
+      "status": "pass"
+    },
+    {
+      "test": "test_functional.Workflows.test_unknown_source_reference_blocks",
+      "status": "pass"
+    },
+    {
+      "test": "test_interfaces.CLITests.test_cli_workflow_and_exit_codes",
+      "status": "pass"
+    },
+    {
+      "test": "test_interfaces.HTTPTests.test_http_pipeline_retry_and_secret_not_logged",
+      "status": "pass"
+    },
+    {
+      "test": "test_interfaces.HTTPTests.test_http_request_auth_and_response",
+      "status": "pass"
+    },
+    {
+      "test": "test_interfaces.HTTPTests.test_http_timeout_rejection_and_malformed_shape",
+      "status": "pass"
+    },
+    {
+      "test": "test_interfaces.HTTPTests.test_model_credentials_must_not_be_inline",
+      "status": "pass"
+    },
+    {
+      "test": "test_interfaces.WebTests.test_browser_service_actions_sources_and_stale_review",
+      "status": "pass"
+    },
+    {
+      "test": "test_interfaces.WebTests.test_import_endpoint",
+      "status": "pass"
+    },
+    {
+      "test": "test_interfaces.WebTests.test_origin_host_token_and_upload_validation",
+      "status": "pass"
+    },
+    {
+      "test": "test_interfaces.WebTests.test_recorded_mode_rejects_custom_input",
+      "status": "pass"
+    }
+  ]
+}

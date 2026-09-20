@@ -1,0 +1,30 @@
+formats:
+- json
+- text
+- markdown
+mode: direct
+chunk_chars: 2000
+default_indexes:
+  kind: note
+indexes:
+  kind:
+    type: string
+    required: true
+    values:
+    - note
+    - medication
+    - follow_up
+item_schema:
+  type: object
+  properties:
+    id: &id001
+      type: string
+      minLength: 1
+    text: *id001
+    indexes:
+      type: object
+  required:
+  - id
+  - text
+  - indexes
+  additionalProperties: false

@@ -1,0 +1,11 @@
+id: clinical_letter
+name: Clinical letter
+version: 0.1.0
+workflow: workflow.yaml
+policy: policy.yaml
+input_schema: input.schema.json
+ingestion: ingestion.yaml
+examples:
+- standard
+- conflict
+- missing

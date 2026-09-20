@@ -1,0 +1,1 @@
+Resolve matcher/auditor disagreement by re-examining the candidate evidence and task. Evidence absence cannot be repaired by model memory. Retain insufficient or contradiction where unresolved. Return exactly one assessment per claim.

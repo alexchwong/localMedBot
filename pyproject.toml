@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "localMedBot"
+version = "0.1.0"
+description = "Bounded, source-linked clinical workflow prototype"
+requires-python = ">=3.10"
+dependencies = ["PyYAML>=6,<7", "jsonschema>=4.18,<5", "Flask>=3,<4"]
+
+[project.optional-dependencies]
+test = ["playwright>=1.40,<2"]
+
+[project.scripts]
+localmedbot = "localmedbot.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+localmedbot = ["templates/*.html", "static/*.css", "static/*.js"]

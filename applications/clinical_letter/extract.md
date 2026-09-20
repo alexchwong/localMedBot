@@ -1,0 +1,1 @@
+Extract source-linked clinical facts from the supplied record items. Use stable fact IDs F1, F2, etc in source order. Preserve dates, uncertainty, absence and conflicting statements. Include evidence_ids using exact supplied IDs. All facts are required unless the task says otherwise. Do not resolve an undocumented discrepancy.

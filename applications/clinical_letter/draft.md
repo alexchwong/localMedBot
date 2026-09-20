@@ -1,0 +1,1 @@
+Draft a concise clinical letter for the stated communication purpose. Return a title and claims; each claim must retain its fact ID and exact evidence_ids. Preserve all required facts, uncertainty and chronology. Do not add undocumented facts. Apply revision feedback.

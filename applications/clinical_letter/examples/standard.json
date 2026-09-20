@@ -1,0 +1,144 @@
+{
+  "input": {
+    "purpose": "Update the referring clinician",
+    "sources": [
+      {
+        "id": "record",
+        "format": "json",
+        "title": "Synthetic clinical record",
+        "content": {
+          "items": [
+            {
+              "id": "R1",
+              "text": "Synthetic patient reports improved energy after the last visit.",
+              "indexes": {
+                "kind": "note"
+              }
+            },
+            {
+              "id": "R2",
+              "text": "Medication A remains documented as unchanged.",
+              "indexes": {
+                "kind": "note"
+              }
+            },
+            {
+              "id": "R3",
+              "text": "Follow-up review is planned in four weeks.",
+              "indexes": {
+                "kind": "note"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "required_fact_ids": [
+      "F1",
+      "F2",
+      "F3"
+    ]
+  },
+  "responses": {
+    "facts": [
+      {
+        "facts": [
+          {
+            "id": "F1",
+            "text": "Synthetic patient reports improved energy after the last visit.",
+            "evidence_ids": [
+              "record:0:0"
+            ],
+            "required": true
+          },
+          {
+            "id": "F2",
+            "text": "Medication A remains documented as unchanged.",
+            "evidence_ids": [
+              "record:1:0"
+            ],
+            "required": true
+          },
+          {
+            "id": "F3",
+            "text": "Follow-up review is planned in four weeks.",
+            "evidence_ids": [
+              "record:2:0"
+            ],
+            "required": true
+          }
+        ]
+      }
+    ],
+    "facts_check": [
+      {
+        "status": "pass",
+        "findings": []
+      }
+    ],
+    "draft": [
+      {
+        "title": "Clinical letter \u2014 synthetic example",
+        "claims": [
+          {
+            "id": "F1",
+            "text": "Synthetic patient reports improved energy after the last visit.",
+            "evidence_ids": [
+              "record:0:0"
+            ]
+          },
+          {
+            "id": "F2",
+            "text": "Medication A remains documented as unchanged.",
+            "evidence_ids": [
+              "record:1:0"
+            ]
+          },
+          {
+            "id": "F3",
+            "text": "Follow-up review is planned in four weeks.",
+            "evidence_ids": [
+              "record:2:0"
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Clinical letter \u2014 synthetic example",
+        "claims": [
+          {
+            "id": "F1",
+            "text": "Synthetic patient reports improved energy after the last visit.",
+            "evidence_ids": [
+              "record:0:0"
+            ]
+          },
+          {
+            "id": "F2",
+            "text": "Medication A remains documented as unchanged.",
+            "evidence_ids": [
+              "record:1:0"
+            ]
+          },
+          {
+            "id": "F3",
+            "text": "Follow-up review is planned in four weeks.",
+            "evidence_ids": [
+              "record:2:0"
+            ]
+          }
+        ]
+      }
+    ],
+    "draft_check": [
+      {
+        "status": "pass",
+        "findings": []
+      },
+      {
+        "status": "pass",
+        "findings": []
+      }
+    ]
+  }
+}

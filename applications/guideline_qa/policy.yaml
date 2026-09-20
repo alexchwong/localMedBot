@@ -1,0 +1,16 @@
+human_approval: true
+required_checks:
+- output_check
+transport_retries: 1
+tools:
+- evidence.search
+- evidence.read
+limits:
+  turns: 60
+  tool_calls: 20
+  tokens: 1500000
+  seconds: 600
+  node_turns: 16
+  node_tool_calls: 12
+  node_tokens: 600000
+  node_seconds: 180

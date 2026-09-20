@@ -1,0 +1,33 @@
+{
+  "checked_at": "2026-09-20T10:18:35.965161+00:00",
+  "environment": "build workspace; not the user machine",
+  "configured_variables_present": {
+    "LOCALMEDBOT_BASE_URL": false,
+    "LOCALMEDBOT_MODEL": false,
+    "LOCALMEDBOT_API_KEY": false,
+    "OPENAI_API_KEY": false,
+    "OPENROUTER_API_KEY": false
+  },
+  "local_server_checks": [
+    {
+      "host": "127.0.0.1",
+      "port": 1234,
+      "reachable": false,
+      "connect_error_code": 111
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8080,
+      "reachable": false,
+      "connect_error_code": 111
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 11434,
+      "reachable": false,
+      "connect_error_code": 111
+    }
+  ],
+  "live_inference_performed": false,
+  "reason": "No configured model endpoint/model identity or credential is available, and the standard local server ports refuse connections. No user local server is exposed to this workspace. HTTP fixture servers are protocol tests only."
+}
