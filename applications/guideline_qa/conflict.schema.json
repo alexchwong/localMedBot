@@ -1,0 +1,113 @@
+{
+  "type": "object",
+  "required": [
+    "id",
+    "topic",
+    "alternatives",
+    "assessment_note",
+    "claim_relations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "topic": {
+      "type": "string"
+    },
+    "alternatives": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "statement",
+          "evidence_refs",
+          "applicability",
+          "claim_ids"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "corpus_id",
+                "evidence_id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "corpus_id": {
+                  "type": "string"
+                },
+                "evidence_id": {
+                  "type": "string"
+                }
+              }
+            },
+            "uniqueItems": true
+          },
+          "applicability": {
+            "type": "string"
+          },
+          "claim_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "extends_alternative_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "assessment_note": {
+      "type": "string"
+    },
+    "claim_relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "claim_id",
+          "relation",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "claim_id": {
+            "type": "string"
+          },
+          "relation": {
+            "enum": [
+              "implicated",
+              "unrelated",
+              "uncertain"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "extends_conflict_id": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+schema_version: 1
+id: guideline_qa.recorded.default
+name: "Guideline QA \u2014 Recorded"
+workflow_id: guideline_qa
+executor: recorded
+base_url: ''
+model: recorded
+settings:
+  temperature: 0
+  max_tokens: 4096
+  timeout_seconds: 60
+  json_mode: true
+roles: {}
+credential_env: ''

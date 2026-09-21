@@ -1,0 +1,309 @@
+{
+  "schema_version": 1,
+  "corpus_uuid": "demo-v1-corpus",
+  "set_id": "demo",
+  "release_id": "v1",
+  "sources": [
+    {
+      "id": "guide1",
+      "format": "json",
+      "title": "Fictional adult clinic guidance",
+      "content": {
+        "items": [
+          {
+            "id": "I1",
+            "text": "For fictional Lumora in adults in clinic, consider observation with a blue diary.",
+            "indexes": {
+              "population": "adult",
+              "setting": "clinic",
+              "published": "2025-01-01",
+              "priority": 1
+            }
+          },
+          {
+            "id": "I2",
+            "text": "Fictional Lumora follow-up includes reviewing the blue diary.",
+            "indexes": {
+              "population": "adult",
+              "setting": "clinic",
+              "published": "2025-01-01",
+              "priority": 2
+            }
+          },
+          {
+            "id": "I3",
+            "text": "For fictional Kelora in adults, request a green token review.",
+            "indexes": {
+              "population": "adult",
+              "setting": "clinic",
+              "published": "2025-01-01",
+              "priority": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "guide2",
+      "format": "json",
+      "title": "Fictional population-specific guidance",
+      "content": {
+        "items": [
+          {
+            "id": "I1",
+            "text": "For fictional Lumora in children, the adult blue diary pathway is not applicable.",
+            "indexes": {
+              "population": "child",
+              "setting": "clinic",
+              "published": "2025-01-01",
+              "priority": 1
+            }
+          },
+          {
+            "id": "I2",
+            "text": "For fictional Lumora in an emergency setting, use the amber simulation pathway.",
+            "indexes": {
+              "population": "adult",
+              "setting": "emergency",
+              "published": "2025-01-01",
+              "priority": 2
+            }
+          },
+          {
+            "id": "I3",
+            "text": "For fictional Merora in adults, use the violet simulation checklist.",
+            "indexes": {
+              "population": "adult",
+              "setting": "clinic",
+              "published": "2025-01-01",
+              "priority": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "guide3",
+      "format": "json",
+      "title": "Fictional conflicting guidance",
+      "content": {
+        "items": [
+          {
+            "id": "I1",
+            "text": "For fictional Zelora, prefer the orange simulation option.",
+            "indexes": {
+              "population": "adult",
+              "setting": "clinic",
+              "published": "2026-06-01",
+              "priority": 1
+            }
+          },
+          {
+            "id": "I2",
+            "text": "For fictional Zelora, avoid the orange simulation option; source disagreement is unresolved.",
+            "indexes": {
+              "population": "adult",
+              "setting": "clinic",
+              "published": "2026-06-01",
+              "priority": 2
+            }
+          },
+          {
+            "id": "I3",
+            "text": "Fictional Zelora requires review of conflicting source guidance.",
+            "indexes": {
+              "population": "adult",
+              "setting": "clinic",
+              "published": "2026-06-01",
+              "priority": 3
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "profile": {
+    "formats": [
+      "json",
+      "text",
+      "markdown"
+    ],
+    "mode": "direct",
+    "chunk_chars": 2000,
+    "default_indexes": {
+      "population": "adult",
+      "setting": "clinic",
+      "published": "2026-01-01"
+    },
+    "indexes": {
+      "population": {
+        "type": "string",
+        "values": [
+          "adult",
+          "child"
+        ],
+        "required": true
+      },
+      "setting": {
+        "type": "string",
+        "values": [
+          "clinic",
+          "emergency"
+        ],
+        "required": true
+      },
+      "published": {
+        "type": "date",
+        "required": true
+      },
+      "priority": {
+        "type": "number"
+      }
+    },
+    "item_schema": {
+      "type": "object",
+      "required": [
+        "id",
+        "text",
+        "indexes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "indexes": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "items": [
+    {
+      "id": "guide1:0:0",
+      "text": "For fictional Lumora in adults in clinic, consider observation with a blue diary.",
+      "indexes": {
+        "population": "adult",
+        "setting": "clinic",
+        "published": "2025-01-01",
+        "priority": 1
+      },
+      "source": "guide1",
+      "locator": "/items/0",
+      "assertion_kind": "excerpt"
+    },
+    {
+      "id": "guide1:1:0",
+      "text": "Fictional Lumora follow-up includes reviewing the blue diary.",
+      "indexes": {
+        "population": "adult",
+        "setting": "clinic",
+        "published": "2025-01-01",
+        "priority": 2
+      },
+      "source": "guide1",
+      "locator": "/items/1",
+      "assertion_kind": "excerpt"
+    },
+    {
+      "id": "guide1:2:0",
+      "text": "For fictional Kelora in adults, request a green token review.",
+      "indexes": {
+        "population": "adult",
+        "setting": "clinic",
+        "published": "2025-01-01",
+        "priority": 3
+      },
+      "source": "guide1",
+      "locator": "/items/2",
+      "assertion_kind": "excerpt"
+    },
+    {
+      "id": "guide2:0:0",
+      "text": "For fictional Lumora in children, the adult blue diary pathway is not applicable.",
+      "indexes": {
+        "population": "child",
+        "setting": "clinic",
+        "published": "2025-01-01",
+        "priority": 1
+      },
+      "source": "guide2",
+      "locator": "/items/0",
+      "assertion_kind": "excerpt"
+    },
+    {
+      "id": "guide2:1:0",
+      "text": "For fictional Lumora in an emergency setting, use the amber simulation pathway.",
+      "indexes": {
+        "population": "adult",
+        "setting": "emergency",
+        "published": "2025-01-01",
+        "priority": 2
+      },
+      "source": "guide2",
+      "locator": "/items/1",
+      "assertion_kind": "excerpt"
+    },
+    {
+      "id": "guide2:2:0",
+      "text": "For fictional Merora in adults, use the violet simulation checklist.",
+      "indexes": {
+        "population": "adult",
+        "setting": "clinic",
+        "published": "2025-01-01",
+        "priority": 3
+      },
+      "source": "guide2",
+      "locator": "/items/2",
+      "assertion_kind": "excerpt"
+    },
+    {
+      "id": "guide3:0:0",
+      "text": "For fictional Zelora, prefer the orange simulation option.",
+      "indexes": {
+        "population": "adult",
+        "setting": "clinic",
+        "published": "2026-06-01",
+        "priority": 1
+      },
+      "source": "guide3",
+      "locator": "/items/0",
+      "assertion_kind": "excerpt"
+    },
+    {
+      "id": "guide3:1:0",
+      "text": "For fictional Zelora, avoid the orange simulation option; source disagreement is unresolved.",
+      "indexes": {
+        "population": "adult",
+        "setting": "clinic",
+        "published": "2026-06-01",
+        "priority": 2
+      },
+      "source": "guide3",
+      "locator": "/items/1",
+      "assertion_kind": "excerpt"
+    },
+    {
+      "id": "guide3:2:0",
+      "text": "Fictional Zelora requires review of conflicting source guidance.",
+      "indexes": {
+        "population": "adult",
+        "setting": "clinic",
+        "published": "2026-06-01",
+        "priority": 3
+      },
+      "source": "guide3",
+      "locator": "/items/2",
+      "assertion_kind": "excerpt"
+    }
+  ],
+  "provenance": {
+    "mode": "direct",
+    "source": "repository"
+  }
+}

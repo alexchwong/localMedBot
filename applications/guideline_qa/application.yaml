@@ -5,9 +5,5 @@ workflow: workflow.yaml
 policy: policy.yaml
 input_schema: input.schema.json
 ingestion: ingestion.yaml
-corpus: corpus.json
-examples:
-- standard
-- mismatch
-- conflict
-- no_evidence
+guideline_sets: true
+examples: [standard, mismatch, conflict, no_evidence]

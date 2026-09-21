@@ -1,0 +1,14 @@
+schema_version: 1
+id: guideline_qa.lmstudio.default
+name: "Guideline QA \u2014 LM Studio"
+workflow_id: guideline_qa
+executor: lmstudio
+base_url: http://127.0.0.1:1234/v1
+model: null
+settings:
+  temperature: 0
+  max_tokens: 4096
+  timeout_seconds: 60
+  json_mode: true
+roles: {}
+credential_env: LOCALMEDBOT_API_KEY

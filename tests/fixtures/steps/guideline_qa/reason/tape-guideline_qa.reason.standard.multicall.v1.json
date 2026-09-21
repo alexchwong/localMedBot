@@ -1,0 +1,24 @@
+{
+  "tape_schema_version": 1,
+  "id": "guideline_qa.reason.standard.multicall",
+  "version": 1,
+  "workflow_id": "guideline_qa",
+  "node_id": "reason",
+  "step_contract_version": 1,
+  "fixture_ref": {
+    "id": "guideline_qa.reason.standard",
+    "version": 1
+  },
+  "responses": [
+    {
+      "attempt": 1,
+      "call_index": 1,
+      "content": "{\"action\":\"search\",\"arguments\":{\"query\":\"Lumora adult clinic\",\"filters\":[],\"limit\":12,\"mode\":\"lexical\"}}"
+    },
+    {
+      "attempt": 1,
+      "call_index": 2,
+      "content": "{\"action\":\"submit\",\"result\":{\"claims\":[{\"id\":\"Q1\",\"text\":\"The selected guidance describes observation with a blue diary.\",\"evidence_refs\":[{\"corpus_id\":\"demo-v1-corpus\",\"evidence_id\":\"guide1:0:0\"},{\"corpus_id\":\"demo-v1-corpus\",\"evidence_id\":\"guide1:1:0\"}]}],\"conflicts\":[]}}"
+    }
+  ]
+}

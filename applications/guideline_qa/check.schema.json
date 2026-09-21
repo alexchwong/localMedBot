@@ -1,0 +1,1 @@
+{"type":"object","required":["status","findings"],"additionalProperties":false,"properties":{"status":{"enum":["pass","fail","needs_review"]},"findings":{"type":"array","items":{"type":"object"}}}}

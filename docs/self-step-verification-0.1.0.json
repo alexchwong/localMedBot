@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "product_version": "0.1.0",
+  "purpose": "Verify that the development self executor can replace external OpenRouter/LM Studio inference for every model-dependent workflow node in isolated-step mode.",
+  "executor": "self",
+  "result": "pass",
+  "model_dependent_nodes_tested": 9,
+  "total_self_model_calls": 10,
+  "runtime_tool_calls": 1,
+  "runtime_tool": "evidence.search",
+  "steps": [
+    {"workflow": "clinical_letter", "node": "facts", "status": "completed", "self_calls": 1, "tool_calls": 0},
+    {"workflow": "clinical_letter", "node": "facts_check", "status": "completed", "self_calls": 1, "tool_calls": 0},
+    {"workflow": "clinical_letter", "node": "draft", "status": "completed", "self_calls": 1, "tool_calls": 0},
+    {"workflow": "clinical_letter", "node": "draft_check", "status": "completed", "self_calls": 1, "tool_calls": 0},
+    {"workflow": "guideline_qa", "node": "reason", "status": "completed", "self_calls": 2, "tool_calls": 1},
+    {"workflow": "guideline_qa", "node": "support.match", "status": "completed", "self_calls": 1, "tool_calls": 0},
+    {"workflow": "guideline_qa", "node": "support.audit", "status": "completed", "self_calls": 1, "tool_calls": 0},
+    {"workflow": "guideline_qa", "node": "support.adjudicate", "status": "completed", "self_calls": 1, "tool_calls": 0},
+    {"workflow": "guideline_qa", "node": "output_check", "status": "completed", "self_calls": 1, "tool_calls": 0}
+  ],
+  "notes": [
+    "Each isolated step used the workflow-specific *.self.default model profile and the same ModelStepService request/parse/schema path used by HTTP execution.",
+    "The reasoning step intentionally returned a search action first; localMedBot executed evidence.search inside the frozen fixture corpus and supplied the observation in the next self handoff before submit.",
+    "Testing exposed and fixed an isolated-step compiler defect: workflow-only review/when transitions are now removed when ancestors/downstream nodes are intentionally absent. The selected node's model/check behavior remains intact.",
+    "No OpenRouter or LM Studio endpoint was used for these tests."
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "fixture_schema_version": 1,
+  "id": "live.guideline_qa.synthetic_v1",
+  "version": 1,
+  "workflow_id": "guideline_qa",
+  "guideline_selection": {
+    "set_id": "demo",
+    "selector": "v1"
+  },
+  "cases": [
+    {
+      "id": "supported",
+      "question": "What does the selected guidance say about Lumora for adults in clinic?",
+      "expected_evidence_outcome": "supported"
+    },
+    {
+      "id": "conflict",
+      "question": "What does the selected guidance say about Zelora?",
+      "expected_evidence_outcome": "conflicting"
+    },
+    {
+      "id": "no_evidence",
+      "question": "What does the selected guidance say about fictional Novera?",
+      "expected_evidence_outcome": "no_evidence"
+    }
+  ]
+}

@@ -1,30 +1,17 @@
-formats:
-- json
-- text
-- markdown
+formats: [json, text, markdown]
 mode: direct
 chunk_chars: 2000
-default_indexes:
-  kind: note
+default_indexes: {kind: note}
 indexes:
   kind:
     type: string
     required: true
-    values:
-    - note
-    - medication
-    - follow_up
+    values: [note, medication, follow_up]
 item_schema:
   type: object
-  properties:
-    id: &id001
-      type: string
-      minLength: 1
-    text: *id001
-    indexes:
-      type: object
-  required:
-  - id
-  - text
-  - indexes
+  required: [id, text, indexes]
   additionalProperties: false
+  properties:
+    id: {type: string, minLength: 1}
+    text: {type: string}
+    indexes: {type: object}

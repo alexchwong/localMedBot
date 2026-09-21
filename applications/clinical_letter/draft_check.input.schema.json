@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "target",
+    "source",
+    "task",
+    "omission_policy"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "target": {
+      "type": "object",
+      "required": [
+        "title",
+        "claims"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claims": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "text",
+              "evidence_refs"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidence_refs": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "corpus_id",
+                    "evidence_id"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "corpus_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "evidence_id": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "facts",
+        "omission_suggestions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "facts": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "text",
+              "evidence_refs",
+              "qualifiers"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidence_refs": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "corpus_id",
+                    "evidence_id"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "corpus_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "evidence_id": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              },
+              "qualifiers": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "negated": {
+                    "type": "boolean"
+                  },
+                  "certainty": {
+                    "type": "string"
+                  },
+                  "temporality": {
+                    "type": "string"
+                  },
+                  "conflict_group": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "omission_suggestions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "fact_id",
+              "reason"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "fact_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "required": [
+        "purpose",
+        "sources",
+        "required_fact_ids"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "purpose": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "format",
+              "content"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "format": {
+                "enum": [
+                  "json",
+                  "text",
+                  "markdown"
+                ]
+              },
+              "title": {
+                "type": "string"
+              },
+              "content": {}
+            },
+            "additionalProperties": false
+          }
+        },
+        "required_fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "omission_policy": {
+      "type": "object",
+      "required": [
+        "extraction_revision",
+        "omitted_fact_ids",
+        "reasons",
+        "review_event_id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "extraction_revision": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "omitted_fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "reasons": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "review_event_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "revision_feedback": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  }
+}

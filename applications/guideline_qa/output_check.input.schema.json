@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "target",
+    "source",
+    "task"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "target": {
+      "type": "object",
+      "required": [
+        "text",
+        "sections",
+        "claim_ids",
+        "citations",
+        "conflict_ids",
+        "unresolved",
+        "data_origin",
+        "origins",
+        "executor",
+        "evidence_outcome"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "claim_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "citations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "evidence_id",
+              "corpus_id",
+              "source",
+              "locator"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "evidence_id": {
+                "type": "string"
+              },
+              "corpus_id": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "locator": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "conflict_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "unresolved": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "data_origin": {
+          "enum": [
+            "synthetic",
+            "user_supplied",
+            "mixed",
+            "unknown"
+          ]
+        },
+        "origins": {
+          "type": "object"
+        },
+        "executor": {
+          "enum": [
+            "recorded",
+            "openrouter",
+            "lmstudio",
+            "self"
+          ]
+        },
+        "evidence_outcome": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "accepted",
+        "conflicts",
+        "unresolved",
+        "withheld_claim_ids",
+        "dissent",
+        "evidence_outcome"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "accepted": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "unresolved": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "withheld_claim_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dissent": {
+          "type": "object"
+        },
+        "evidence_outcome": {
+          "enum": [
+            "supported",
+            "partial",
+            "conflicting",
+            "no_evidence"
+          ]
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "required": [
+        "question",
+        "context",
+        "filters"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000
+        },
+        "context": {
+          "type": "object"
+        },
+        "filters": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "revision_feedback": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  }
+}

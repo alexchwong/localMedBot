@@ -1,0 +1,31 @@
+[
+  {
+    "id": "altguide",
+    "format": "json",
+    "title": "Independent synthetic set",
+    "content": {
+      "items": [
+        {
+          "id": "I1",
+          "text": "For fictional Altora in adults, use the silver simulation card.",
+          "indexes": {
+            "population": "adult",
+            "setting": "clinic",
+            "published": "2026-02-01",
+            "priority": 1
+          }
+        },
+        {
+          "id": "I2",
+          "text": "For fictional Altora follow-up, review the silver simulation card.",
+          "indexes": {
+            "population": "adult",
+            "setting": "clinic",
+            "published": "2026-02-01",
+            "priority": 2
+          }
+        }
+      ]
+    }
+  }
+]

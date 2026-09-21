@@ -1,31 +1,50 @@
-"""Small public contracts; payload schemas belong to applications."""
+"""Public contracts and stable faults for localMedBot 0.1.0."""
+from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 import json
+import unicodedata
 from jsonschema import Draft202012Validator
 
 
 class Fault(Exception):
-    def __init__(self, code, detail="", findings=None):
+    def __init__(self, code: str, detail: str = "", findings: list[dict] | None = None):
         self.code, self.detail, self.findings = code, detail, findings or []
         super().__init__(f"{code}: {detail}")
 
 
-def validate(value, schema):
+class ModelSuspension(Exception):
+    """Intentional self-executor suspension; never treated as a workflow fault."""
+    def __init__(self, request_id: str):
+        self.request_id = request_id
+        super().__init__(request_id)
+
+
+def validate(value: Any, schema: dict) -> Any:
     Draft202012Validator.check_schema(schema)
     errors = list(Draft202012Validator(schema).iter_errors(value))
     if errors:
         raise Fault("schema_invalid", findings=[
             {"code": "schema_invalid", "path": list(e.absolute_path), "rule": e.validator}
-            for e in errors])
+            for e in errors
+        ])
     return value
 
 
-def parse(raw):
+def parse(raw: str) -> Any:
     try:
         return json.loads(raw)
-    except (ValueError, TypeError) as e:
-        raise Fault("syntax_invalid") from e
+    except (ValueError, TypeError) as exc:
+        raise Fault("syntax_invalid") from exc
+
+
+def validate_actor(actor: str) -> str:
+    if not isinstance(actor, str):
+        raise Fault("actor_invalid")
+    actor = actor.strip()
+    if not 1 <= len(actor) <= 100 or any(unicodedata.category(c) == "Cc" for c in actor):
+        raise Fault("actor_invalid")
+    return actor
 
 
 @dataclass(frozen=True)
@@ -36,44 +55,6 @@ class Artifact:
     producer: str
     inputs: dict = field(default_factory=dict)
     schema: dict = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class Source:
-    id: str
-    revision: str
-    kind: str
-    content: Any
-    scope: str
-
-
-@dataclass(frozen=True)
-class EvidenceItem:
-    id: str
-    source: str
-    locator: str
-    text: str
-    indexes: dict
-    revision: str
-    assertion_kind: str = "excerpt"
-
-
-@dataclass(frozen=True)
-class Claim:
-    id: str
-    text: str
-    evidence_ids: list[str]
-    kind: str = "assertion"
-    qualifiers: dict = field(default_factory=dict)
-    revision: int = 1
-
-
-@dataclass(frozen=True)
-class SupportAssessment:
-    claim_id: str
-    evidence_ids: list[str]
-    decision: str
-    reason: str
 
 
 @dataclass
@@ -90,30 +71,30 @@ class ModuleResult:
 
 @dataclass(frozen=True)
 class ReviewDecision:
-    revision: int
+    revision: int | None
     actor: str
     decision: str
     comments: str
 
 
 class Module:
-    """Trusted extension point. The runner owns commit, retry and approval."""
+    model_dependent = False
     def execute(self, context, inputs, config) -> ModuleResult:
         raise NotImplementedError
 
 
 class Registry:
     def __init__(self):
-        self.modules = {}
+        self.modules: dict[str, Module] = {}
 
-    def register(self, name, module):
+    def register(self, name: str, module: Module) -> None:
         if name in self.modules:
             raise Fault("duplicate_module", name)
         if not isinstance(module, Module):
             raise Fault("invalid_module", name)
         self.modules[name] = module
 
-    def get(self, name):
+    def get(self, name: str) -> Module:
         if name not in self.modules:
             raise Fault("unknown_module", name)
         return self.modules[name]

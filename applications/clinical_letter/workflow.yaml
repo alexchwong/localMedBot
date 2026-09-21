@@ -1,76 +1,51 @@
-version: 1
+version: 2
 nodes:
 - id: records
   module: ingest
-  inputs:
-    data: run.input
-  config:
-    profile: ingestion.yaml
+  inputs: {data: run.input}
+  config: {profile: ingestion.yaml}
 - id: facts
   module: reason
-  needs:
-  - records
-  inputs:
-    source: artifacts.records
-    task: run.input
-  config:
-    prompt: extract.md
-    role: extraction
+  needs: [records]
+  input_schema: facts.input.schema.json
+  inputs: {source: artifacts.records, task: run.input}
+  config: {prompt: extract.md, role: extraction}
   schema: facts.schema.json
   repairs: 1
 - id: facts_check
   module: content_check
-  needs:
-  - facts
-  inputs:
-    target: artifacts.facts
-    source: artifacts.records
-    task: run.input
-  config:
-    prompt: check.md
-    references: true
-  review:
-    target: facts
-    max_revisions: 1
+  needs: [facts]
+  input_schema: facts_check.input.schema.json
+  inputs: {target: artifacts.facts, source: artifacts.records, task: run.input}
+  config: {prompt: check.md, references: true, role: review}
+  schema: check.schema.json
+  review: {target: facts, max_revisions: 1}
 - id: draft
   module: reason
-  needs:
-  - facts_check
-  inputs:
-    source: artifacts.facts
-    task: run.input
-  config:
-    prompt: draft.md
+  needs: [facts_check]
+  input_schema: draft.input.schema.json
+  inputs: {source: artifacts.facts, task: run.input, omission_policy: run.omission_policy}
+  config: {prompt: draft.md, role: writing}
   schema: claims.schema.json
   repairs: 1
 - id: draft_check
   module: content_check
-  needs:
-  - draft
-  inputs:
-    target: artifacts.draft
-    source: artifacts.facts
-    task: run.input
-  config:
-    prompt: check.md
-    coverage: true
-  review:
-    target: draft
-    max_revisions: 1
+  needs: [draft]
+  input_schema: draft_check.input.schema.json
+  inputs: {target: artifacts.draft, source: artifacts.facts, task: run.input, omission_policy: run.omission_policy}
+  config: {prompt: check.md, coverage: true, role: review}
+  schema: check.schema.json
+  review: {target: draft, max_revisions: 1}
 - id: output
   module: render
-  needs:
-  - draft_check
-  inputs:
-    data: artifacts.draft
-  config:
-    template: output.md
+  needs: [draft_check]
+  inputs: {data: artifacts.draft}
+  config: {template: output.md}
 - id: approval
   module: human_review
-  needs:
-  - output
-  inputs:
-    output: artifacts.output
+  needs: [output]
+  inputs: {output: artifacts.output}
 output: output
 review_node: approval
 revision_target: draft
+revision_targets: [facts, draft]

@@ -1,0 +1,19 @@
+{
+  "fixture_schema_version": 1,
+  "id": "live.clinical_letter.synthetic_v1",
+  "version": 1,
+  "workflow_id": "clinical_letter",
+  "input": {
+    "notes": "Synthetic case: on 1 September fatigue was present; on 15 September it improved. Fever was not reported. Iron deficiency is possible but uncertain. Medication X is documented as continued in one entry and stopped later.",
+    "purpose": "Provide a concise update to the referring clinician."
+  },
+  "rubric": {
+    "required_concepts": [
+      "chronology",
+      "negation",
+      "uncertainty",
+      "conflicting medication status"
+    ],
+    "expected_terminal_state": "waiting_review"
+  }
+}

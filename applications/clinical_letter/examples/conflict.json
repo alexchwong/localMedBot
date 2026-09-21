@@ -10,21 +10,21 @@
           "items": [
             {
               "id": "R1",
-              "text": "At the first synthetic visit, Medication A was documented as stopped.",
+              "text": "Medication A was documented as stopped at the earlier visit.",
               "indexes": {
                 "kind": "note"
               }
             },
             {
               "id": "R2",
-              "text": "At the later visit, Medication A remained on the list; current use is unconfirmed.",
+              "text": "Medication A was later documented as continuing; the discrepancy is unresolved.",
               "indexes": {
                 "kind": "note"
               }
             },
             {
               "id": "R3",
-              "text": "Medication reconciliation is requested at follow-up.",
+              "text": "Follow-up review is planned in two weeks.",
               "indexes": {
                 "kind": "note"
               }
@@ -45,32 +45,108 @@
         "facts": [
           {
             "id": "F1",
-            "text": "At the first synthetic visit, Medication A was documented as stopped.",
-            "evidence_ids": [
-              "record:0:0"
+            "text": "Medication A was documented as stopped at the earlier visit.",
+            "evidence_refs": [
+              {
+                "corpus_id": {
+                  "$input": "source.corpus_id"
+                },
+                "evidence_id": "record:0:0"
+              }
             ],
-            "required": true
+            "qualifiers": {
+              "temporality": "earlier",
+              "conflict_group": "medication-status"
+            }
           },
           {
             "id": "F2",
-            "text": "At the later visit, Medication A remained on the list; current use is unconfirmed.",
-            "evidence_ids": [
-              "record:1:0"
+            "text": "Medication A was later documented as continuing; the discrepancy is unresolved.",
+            "evidence_refs": [
+              {
+                "corpus_id": {
+                  "$input": "source.corpus_id"
+                },
+                "evidence_id": "record:1:0"
+              }
             ],
-            "required": true
+            "qualifiers": {
+              "temporality": "later",
+              "conflict_group": "medication-status"
+            }
           },
           {
             "id": "F3",
-            "text": "Medication reconciliation is requested at follow-up.",
-            "evidence_ids": [
-              "record:2:0"
+            "text": "Follow-up review is planned in two weeks.",
+            "evidence_refs": [
+              {
+                "corpus_id": {
+                  "$input": "source.corpus_id"
+                },
+                "evidence_id": "record:2:0"
+              }
             ],
-            "required": true
+            "qualifiers": {}
           }
-        ]
+        ],
+        "omission_suggestions": []
+      },
+      {
+        "facts": [
+          {
+            "id": "F1",
+            "text": "Medication A was documented as stopped at the earlier visit.",
+            "evidence_refs": [
+              {
+                "corpus_id": {
+                  "$input": "source.corpus_id"
+                },
+                "evidence_id": "record:0:0"
+              }
+            ],
+            "qualifiers": {
+              "temporality": "earlier",
+              "conflict_group": "medication-status"
+            }
+          },
+          {
+            "id": "F2",
+            "text": "Medication A was later documented as continuing; the discrepancy is unresolved.",
+            "evidence_refs": [
+              {
+                "corpus_id": {
+                  "$input": "source.corpus_id"
+                },
+                "evidence_id": "record:1:0"
+              }
+            ],
+            "qualifiers": {
+              "temporality": "later",
+              "conflict_group": "medication-status"
+            }
+          },
+          {
+            "id": "F3",
+            "text": "Follow-up review is planned in two weeks.",
+            "evidence_refs": [
+              {
+                "corpus_id": {
+                  "$input": "source.corpus_id"
+                },
+                "evidence_id": "record:2:0"
+              }
+            ],
+            "qualifiers": {}
+          }
+        ],
+        "omission_suggestions": []
       }
     ],
     "facts_check": [
+      {
+        "status": "pass",
+        "findings": []
+      },
       {
         "status": "pass",
         "findings": []
@@ -78,59 +154,89 @@
     ],
     "draft": [
       {
-        "title": "Clinical letter \u2014 synthetic example",
+        "title": "Clinical letter — synthetic example",
         "claims": [
           {
             "id": "F1",
-            "text": "At the first synthetic visit, Medication A was documented as stopped.",
-            "evidence_ids": [
-              "record:0:0"
-            ]
+            "text": "Medication A was documented as stopped at the earlier visit.",
+            "evidence_refs": {
+              "$input": "source.facts.0.evidence_refs"
+            }
           },
           {
             "id": "F2",
-            "text": "At the later visit, Medication A remained on the list; current use is unconfirmed.",
-            "evidence_ids": [
-              "record:1:0"
-            ]
+            "text": "Medication A was later documented as continuing; the discrepancy is unresolved.",
+            "evidence_refs": {
+              "$input": "source.facts.1.evidence_refs"
+            }
           },
           {
             "id": "F3",
-            "text": "Medication reconciliation is requested at follow-up.",
-            "evidence_ids": [
-              "record:2:0"
-            ]
+            "text": "Follow-up review is planned in two weeks.",
+            "evidence_refs": {
+              "$input": "source.facts.2.evidence_refs"
+            }
           }
         ]
       },
       {
-        "title": "Clinical letter \u2014 synthetic example",
+        "title": "Clinical letter — synthetic example",
         "claims": [
           {
             "id": "F1",
-            "text": "At the first synthetic visit, Medication A was documented as stopped.",
-            "evidence_ids": [
-              "record:0:0"
-            ]
+            "text": "Medication A was documented as stopped at the earlier visit.",
+            "evidence_refs": {
+              "$input": "source.facts.0.evidence_refs"
+            }
           },
           {
             "id": "F2",
-            "text": "At the later visit, Medication A remained on the list; current use is unconfirmed.",
-            "evidence_ids": [
-              "record:1:0"
-            ]
+            "text": "Medication A was later documented as continuing; the discrepancy is unresolved.",
+            "evidence_refs": {
+              "$input": "source.facts.1.evidence_refs"
+            }
           },
           {
             "id": "F3",
-            "text": "Medication reconciliation is requested at follow-up.",
-            "evidence_ids": [
-              "record:2:0"
-            ]
+            "text": "Follow-up review is planned in two weeks.",
+            "evidence_refs": {
+              "$input": "source.facts.2.evidence_refs"
+            }
+          }
+        ]
+      },
+      {
+        "title": "Clinical letter — synthetic example",
+        "claims": [
+          {
+            "id": "F1",
+            "text": "Medication A was documented as stopped at the earlier visit.",
+            "evidence_refs": {
+              "$input": "source.facts.0.evidence_refs"
+            }
+          },
+          {
+            "id": "F2",
+            "text": "Medication A was later documented as continuing; the discrepancy is unresolved.",
+            "evidence_refs": {
+              "$input": "source.facts.1.evidence_refs"
+            }
+          },
+          {
+            "id": "F3",
+            "text": "Follow-up review is planned in two weeks.",
+            "evidence_refs": {
+              "$input": "source.facts.2.evidence_refs"
+            }
           }
         ]
       }
     ],
     "draft_check": [
+      {
+        "status": "pass",
+        "findings": []
+      },
       {
         "status": "pass",
         "findings": []

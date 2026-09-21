@@ -1,56 +1,32 @@
 nodes:
 - id: support.match
   module: evidence_stage
-  needs:
-  - reason
-  - collected
-  inputs:
-    claims: artifacts.reason
-    candidates: artifacts.collected
-    task: run.input
-  config:
-    prompt: match.md
-    role: match
+  needs: [reason, collected]
+  input_schema: stage.input.schema.json
+  inputs: {claims: artifacts.reason, candidates: artifacts.collected, task: run.input, conflict_registry: artifacts.reason.conflict_registry}
+  config: {prompt: match.md, role: match, conflict_schema: conflict.schema.json}
   repairs: 1
 - id: support.audit
   module: evidence_stage
-  needs:
-  - support.match
-  inputs:
-    claims: artifacts.reason
-    candidates: artifacts.collected
-    previous: artifacts.support.match
-    task: run.input
-  config:
-    prompt: audit.md
-    selected_only: true
+  needs: [support.match]
+  input_schema: stage.input.schema.json
+  inputs: {claims: artifacts.reason, candidates: artifacts.collected, previous: artifacts.support.match, task: run.input, conflict_registry: artifacts.support.match.conflict_registry}
+  config: {prompt: audit.md, role: audit, conflict_schema: conflict.schema.json}
   repairs: 1
 - id: support.adjudicate
   module: evidence_stage
-  needs:
-  - support.audit
-  inputs:
-    claims: artifacts.reason
-    candidates: artifacts.collected
-    previous: artifacts.support.audit
-    match: artifacts.support.match
-    task: run.input
-  when:
-    from: artifacts.support.audit.disputed
-    op: equals
-    value: true
-  config:
-    prompt: adjudicate.md
+  needs: [support.audit]
+  input_schema: stage.input.schema.json
+  inputs: {claims: artifacts.reason, candidates: artifacts.collected, previous: artifacts.support.audit, match: artifacts.support.match, task: run.input, conflict_registry: artifacts.support.audit.conflict_registry}
+  when: {from: artifacts.support.audit.disputed, op: equals, value: true}
+  config: {prompt: adjudicate.md, role: adjudication, conflict_schema: conflict.schema.json}
   repairs: 1
 - id: support.final
   module: evidence_finalize
-  needs:
-  - support.adjudicate
+  needs: [support.adjudicate]
   inputs:
     claims: artifacts.reason
     candidates: artifacts.collected
     match: artifacts.support.match
     audit: artifacts.support.audit
-    adjudication:
-      from: artifacts.support.adjudicate
-      optional: true
+    adjudication: {from: artifacts.support.adjudicate, optional: true}

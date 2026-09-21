@@ -1,74 +1,31 @@
 {
   "input": {
-    "question": "Kelora",
-    "context": {
-      "population": "child",
-      "setting": "clinic"
-    },
+    "question": "What guidance applies to fictional Lumora in a child?",
+    "context": {},
     "filters": []
   },
   "responses": {
     "reason": [
       {
-        "action": "search",
-        "arguments": {
-          "query": "Kelora",
-          "limit": 12
-        }
-      },
-      {
-        "action": "read",
-        "arguments": {
-          "corpus_id": {
-            "$input": "observations.0.result.0.revision"
-          },
-          "evidence_id": "guide1:2:0"
-        }
-      },
-      {
         "action": "submit",
         "result": {
-          "title": "Synthetic guideline answer",
           "claims": [
             {
-              "id": "C1",
-              "text": "For fictional Kelora in adults, request a green token review.",
-              "evidence_ids": [
-                "guide1:2:0"
+              "id": "Q1",
+              "text": "The selected guidance describes observation with a blue diary.",
+              "evidence_refs": [
+                {
+                  "corpus_id": {
+                    "$input": "inputs.candidates.items.0.revision"
+                  },
+                  "evidence_id": {
+                    "$input": "inputs.candidates.items.0.id"
+                  }
+                }
               ]
             }
-          ]
-        }
-      },
-      {
-        "action": "search",
-        "arguments": {
-          "query": "Kelora",
-          "limit": 12
-        }
-      },
-      {
-        "action": "read",
-        "arguments": {
-          "corpus_id": {
-            "$input": "observations.0.result.0.revision"
-          },
-          "evidence_id": "guide1:2:0"
-        }
-      },
-      {
-        "action": "submit",
-        "result": {
-          "title": "Synthetic guideline answer",
-          "claims": [
-            {
-              "id": "C1",
-              "text": "For fictional Kelora in adults, request a green token review.",
-              "evidence_ids": [
-                "guide1:2:0"
-              ]
-            }
-          ]
+          ],
+          "conflicts": []
         }
       }
     ],
@@ -76,85 +33,29 @@
       {
         "assessments": [
           {
-            "claim_id": "C1",
-            "evidence_ids": [
-              "guide1:2:0"
-            ],
-            "decision": "support",
-            "reason": "Population mismatch: no applicable evidence."
+            "claim_id": "Q1",
+            "evidence_refs": [],
+            "decision": "not_applicable",
+            "reason": "Synthetic evidence assessment."
           }
-        ]
-      },
-      {
-        "assessments": [
-          {
-            "claim_id": "C1",
-            "evidence_ids": [
-              "guide1:2:0"
-            ],
-            "decision": "support",
-            "reason": "Population mismatch: no applicable evidence."
-          }
-        ]
+        ],
+        "conflicts": []
       }
     ],
     "support.audit": [
       {
         "assessments": [
           {
-            "claim_id": "C1",
-            "evidence_ids": [
-              "guide1:2:0"
-            ],
-            "decision": "insufficient",
-            "reason": "Population mismatch: no applicable evidence."
+            "claim_id": "Q1",
+            "evidence_refs": [],
+            "decision": "not_applicable",
+            "reason": "Synthetic evidence assessment."
           }
-        ]
-      },
-      {
-        "assessments": [
-          {
-            "claim_id": "C1",
-            "evidence_ids": [
-              "guide1:2:0"
-            ],
-            "decision": "insufficient",
-            "reason": "Population mismatch: no applicable evidence."
-          }
-        ]
-      }
-    ],
-    "support.adjudicate": [
-      {
-        "assessments": [
-          {
-            "claim_id": "C1",
-            "evidence_ids": [
-              "guide1:2:0"
-            ],
-            "decision": "insufficient",
-            "reason": "Population mismatch: no applicable evidence."
-          }
-        ]
-      },
-      {
-        "assessments": [
-          {
-            "claim_id": "C1",
-            "evidence_ids": [
-              "guide1:2:0"
-            ],
-            "decision": "insufficient",
-            "reason": "Population mismatch: no applicable evidence."
-          }
-        ]
+        ],
+        "conflicts": []
       }
     ],
     "output_check": [
-      {
-        "status": "pass",
-        "findings": []
-      },
       {
         "status": "pass",
         "findings": []

@@ -1,83 +1,95 @@
-"""One OpenAI-compatible HTTP adapter and a clearly labelled fixture adapter."""
+"""Recorded, OpenRouter/LM Studio OpenAI-compatible, and self executors."""
+from __future__ import annotations
 import json
-import os
-import urllib.request
+import socket
+import time
 import urllib.error
-import urllib.parse
-from .contracts import Fault
+import urllib.request
+from .contracts import Fault, ModelSuspension
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise Fault("provider_redirect_rejected", str(code))
 
 
 class RecordedProvider:
-    def __init__(self, tape):
-        self.tape = tape
-
-    def complete(self, request, key, index):
-        rows = self.tape.get(key, [])
-        if index >= len(rows):
-            raise Fault("recording_exhausted", key)
-        value = rows[index]
-        def resolve(value):
-            if isinstance(value, dict) and set(value) == {"$input"}:
-                obj = json.loads(request["messages"][-1]["content"])
-                for part in value["$input"].split("."):
-                    obj = obj[int(part)] if isinstance(obj,list) else obj[part]
+    def __init__(self, tape: dict): self.tape=tape
+    def complete(self, request: dict, key: str, index: int) -> dict:
+        rows=self.tape.get(key,[])
+        if isinstance(rows,dict):
+            pair=f"{request.get('attempt')}:{request.get('call_index')}"
+            if pair not in rows:
+                raise Fault("recording_exhausted",f"{key}:{pair}")
+            value=rows[pair]
+        else:
+            if index >= len(rows):
+                raise Fault("recording_exhausted",key)
+            value=rows[index]
+        def resolve(v):
+            if isinstance(v,dict) and set(v)=={"$input"}:
+                obj=json.loads(request["messages"][-1]["content"])
+                for part in v["$input"].split("."):
+                    obj=obj[int(part)] if isinstance(obj,list) else obj[part]
                 return obj
-            if isinstance(value, dict):
-                return {k:resolve(v) for k,v in value.items()}
-            if isinstance(value, list):
-                return [resolve(v) for v in value]
-            return value
-        value = resolve(value)
-        return {"text": value if isinstance(value,str) else json.dumps(value), "usage": None, "provider": "recorded"}
+            if isinstance(v,dict): return {k:resolve(x) for k,x in v.items()}
+            if isinstance(v,list): return [resolve(x) for x in v]
+            return v
+        value=resolve(value)
+        return {"text":value if isinstance(value,str) else json.dumps(value),"usage":None,"returned_model":None,"finish_reason":"stop","provider_request_id":None,"executor":"recorded","duration":0.0}
+
+
+class SelfProvider:
+    def complete(self, request: dict, key: str, index: int) -> dict:
+        raise ModelSuspension(request["request_id"])
 
 
 class HTTPProvider:
-    def __init__(self, config):
-        self.config = config
-        url = urllib.parse.urlsplit(config.get("base_url", ""))
-        if url.scheme not in ["http", "https"] or not url.hostname or url.username or url.password or url.query or url.fragment:
-            raise Fault("endpoint_invalid")
-        if not config.get("model"):
-            raise Fault("model_missing")
+    def __init__(self, profile: dict, credential: str | None):
+        self.profile,self.credential=profile,credential
+        self.opener=urllib.request.build_opener(_NoRedirect())
 
-    def complete(self, request, key, index):
-        cfg = self.config
-        data = {"model": cfg["model"], "messages": request["messages"],
-                "temperature": cfg.get("temperature", 0), "max_tokens": request["max_tokens"]}
-        if cfg.get("json_mode", True):
-            data["response_format"] = {"type": "json_object"}
-        headers = {"Content-Type": "application/json"}
-        secret = os.environ.get(cfg.get("api_key_env", "LOCALMEDBOT_API_KEY"), "")
-        if secret:
-            headers["Authorization"] = "Bearer " + secret
-        req = urllib.request.Request(cfg["base_url"].rstrip("/") + "/chat/completions", data=json.dumps(data).encode(), headers=headers)
+    def complete(self, request: dict, key: str, index: int) -> dict:
+        role=request["role"]
+        settings=self.profile["effective_roles"][role]
+        data={"model":settings["model"],"messages":request["messages"],"temperature":settings.get("temperature",0),"max_tokens":settings.get("max_tokens",4096)}
+        if settings.get("json_mode",True): data["response_format"]={"type":"json_object"}
+        headers={"Content-Type":"application/json"}
+        if self.credential: headers["Authorization"]="Bearer "+self.credential
+        req=urllib.request.Request(self.profile["base_url"].rstrip("/")+"/chat/completions",data=json.dumps(data).encode("utf-8"),headers=headers)
+        start=time.monotonic()
         try:
-            with urllib.request.urlopen(req, timeout=request["timeout"]) as response:
-                raw = response.read(2_000_001)
-                if len(raw) > 2_000_000:
-                    raise Fault("response_too_large")
-                result = json.loads(raw)
-            choice = result["choices"][0]
-            if choice.get("finish_reason") == "length":
-                raise Fault("output_truncated")
-            text = choice["message"]["content"]
-            if not isinstance(text, str):
-                raise Fault("provider_shape")
-            return {"text": text, "usage": result.get("usage"), "provider": "http"}
+            with self.opener.open(req,timeout=request["timeout"]) as response:
+                raw=response.read(2_000_001)
+                if len(raw)>2_000_000: raise Fault("provider_incompatible_response","response_too_large")
+                result=json.loads(raw)
+                request_id=response.headers.get("x-request-id") or response.headers.get("x-openrouter-request-id")
+            choice=result["choices"][0]
+            finish=choice.get("finish_reason")
+            if finish=="length": raise Fault("output_truncated")
+            text=choice["message"]["content"]
+            if not isinstance(text,str) or len(text.encode("utf-8"))>100_000: raise Fault("provider_incompatible_response")
+            return {"text":text,"usage":result.get("usage"),"returned_model":result.get("model"),"finish_reason":finish,
+                    "provider_request_id":request_id,"executor":self.profile["executor"],"duration":time.monotonic()-start}
+        except Fault: raise
         except urllib.error.HTTPError as exc:
-            # Never record response bodies, which can contain upstream secrets.
-            raise Fault("transport_retryable" if exc.code in [408,429] or exc.code >= 500 else "provider_rejected", str(exc.code)) from None
-        except (urllib.error.URLError, TimeoutError, OSError):
-            raise Fault("transport_retryable") from None
+            if exc.code in (401,403): code="authentication_rejected"
+            elif exc.code in (408,429) or exc.code>=500: code="provider_transient_failure"
+            else: code="provider_request_rejected"
+            raise Fault(code,str(exc.code)) from None
+        except (urllib.error.URLError, socket.timeout, TimeoutError) as exc:
+            reason=getattr(exc,"reason",None)
+            if isinstance(reason,(TimeoutError,socket.timeout)): raise Fault("provider_timeout") from None
+            raise Fault("endpoint_unreachable") from None
         except (ValueError,KeyError,IndexError,TypeError):
-            raise Fault("provider_shape") from None
+            raise Fault("provider_incompatible_response") from None
 
 
-def make_provider(config, tape=None):
-    if not isinstance(config.get("max_tokens",2048),int) or not 1 <= config.get("max_tokens",2048) <= 65536 or not 0 < config.get("timeout",45) <= 600:
-        raise Fault("model_limits")
-    if config.get("provider") == "recorded":
-        return RecordedProvider(tape or {})
-    if config.get("provider") == "http":
-        return HTTPProvider(config)
+def make_provider(profile: dict, credential: str | None = None, tape: dict | None = None):
+    executor=profile["executor"]
+    if executor=="recorded": return RecordedProvider(tape or {})
+    if executor=="self": return SelfProvider()
+    if executor in {"openrouter","lmstudio"}:
+        if executor=="openrouter" and not credential: raise Fault("credential_missing")
+        return HTTPProvider(profile,credential)
     raise Fault("unknown_provider")

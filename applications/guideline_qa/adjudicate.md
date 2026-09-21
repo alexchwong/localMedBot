@@ -1,1 +1,1 @@
-Resolve matcher/auditor disagreement by re-examining the candidate evidence and task. Evidence absence cannot be repaired by model memory. Retain insufficient or contradiction where unresolved. Return exactly one assessment per claim.
+Resolve disagreements about whether evidence supports a statement, applicability, or whether a conflict is genuinely sourced. You may correct an assessment but must not select a preferred recommendation between competing guideline alternatives. Preserve valid conflicts.

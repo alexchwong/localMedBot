@@ -46,31 +46,95 @@
           {
             "id": "F1",
             "text": "Synthetic patient reports improved energy after the last visit.",
-            "evidence_ids": [
-              "record:0:0"
+            "evidence_refs": [
+              {
+                "corpus_id": {
+                  "$input": "source.corpus_id"
+                },
+                "evidence_id": "record:0:0"
+              }
             ],
-            "required": true
+            "qualifiers": {}
           },
           {
             "id": "F2",
             "text": "Medication A remains documented as unchanged.",
-            "evidence_ids": [
-              "record:1:0"
+            "evidence_refs": [
+              {
+                "corpus_id": {
+                  "$input": "source.corpus_id"
+                },
+                "evidence_id": "record:1:0"
+              }
             ],
-            "required": true
+            "qualifiers": {}
           },
           {
             "id": "F3",
             "text": "Follow-up review is planned in four weeks.",
-            "evidence_ids": [
-              "record:2:0"
+            "evidence_refs": [
+              {
+                "corpus_id": {
+                  "$input": "source.corpus_id"
+                },
+                "evidence_id": "record:2:0"
+              }
             ],
-            "required": true
+            "qualifiers": {}
           }
-        ]
+        ],
+        "omission_suggestions": []
+      },
+      {
+        "facts": [
+          {
+            "id": "F1",
+            "text": "Synthetic patient reports improved energy after the last visit.",
+            "evidence_refs": [
+              {
+                "corpus_id": {
+                  "$input": "source.corpus_id"
+                },
+                "evidence_id": "record:0:0"
+              }
+            ],
+            "qualifiers": {}
+          },
+          {
+            "id": "F2",
+            "text": "Medication A remains documented as unchanged.",
+            "evidence_refs": [
+              {
+                "corpus_id": {
+                  "$input": "source.corpus_id"
+                },
+                "evidence_id": "record:1:0"
+              }
+            ],
+            "qualifiers": {}
+          },
+          {
+            "id": "F3",
+            "text": "Follow-up review is planned in four weeks.",
+            "evidence_refs": [
+              {
+                "corpus_id": {
+                  "$input": "source.corpus_id"
+                },
+                "evidence_id": "record:2:0"
+              }
+            ],
+            "qualifiers": {}
+          }
+        ],
+        "omission_suggestions": []
       }
     ],
     "facts_check": [
+      {
+        "status": "pass",
+        "findings": []
+      },
       {
         "status": "pass",
         "findings": []
@@ -78,59 +142,89 @@
     ],
     "draft": [
       {
-        "title": "Clinical letter \u2014 synthetic example",
+        "title": "Clinical letter — synthetic example",
         "claims": [
           {
             "id": "F1",
             "text": "Synthetic patient reports improved energy after the last visit.",
-            "evidence_ids": [
-              "record:0:0"
-            ]
+            "evidence_refs": {
+              "$input": "source.facts.0.evidence_refs"
+            }
           },
           {
             "id": "F2",
             "text": "Medication A remains documented as unchanged.",
-            "evidence_ids": [
-              "record:1:0"
-            ]
+            "evidence_refs": {
+              "$input": "source.facts.1.evidence_refs"
+            }
           },
           {
             "id": "F3",
             "text": "Follow-up review is planned in four weeks.",
-            "evidence_ids": [
-              "record:2:0"
-            ]
+            "evidence_refs": {
+              "$input": "source.facts.2.evidence_refs"
+            }
           }
         ]
       },
       {
-        "title": "Clinical letter \u2014 synthetic example",
+        "title": "Clinical letter — synthetic example",
         "claims": [
           {
             "id": "F1",
             "text": "Synthetic patient reports improved energy after the last visit.",
-            "evidence_ids": [
-              "record:0:0"
-            ]
+            "evidence_refs": {
+              "$input": "source.facts.0.evidence_refs"
+            }
           },
           {
             "id": "F2",
             "text": "Medication A remains documented as unchanged.",
-            "evidence_ids": [
-              "record:1:0"
-            ]
+            "evidence_refs": {
+              "$input": "source.facts.1.evidence_refs"
+            }
           },
           {
             "id": "F3",
             "text": "Follow-up review is planned in four weeks.",
-            "evidence_ids": [
-              "record:2:0"
-            ]
+            "evidence_refs": {
+              "$input": "source.facts.2.evidence_refs"
+            }
+          }
+        ]
+      },
+      {
+        "title": "Clinical letter — synthetic example",
+        "claims": [
+          {
+            "id": "F1",
+            "text": "Synthetic patient reports improved energy after the last visit.",
+            "evidence_refs": {
+              "$input": "source.facts.0.evidence_refs"
+            }
+          },
+          {
+            "id": "F2",
+            "text": "Medication A remains documented as unchanged.",
+            "evidence_refs": {
+              "$input": "source.facts.1.evidence_refs"
+            }
+          },
+          {
+            "id": "F3",
+            "text": "Follow-up review is planned in four weeks.",
+            "evidence_refs": {
+              "$input": "source.facts.2.evidence_refs"
+            }
           }
         ]
       }
     ],
     "draft_check": [
+      {
+        "status": "pass",
+        "findings": []
+      },
       {
         "status": "pass",
         "findings": []

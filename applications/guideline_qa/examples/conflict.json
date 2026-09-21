@@ -1,73 +1,79 @@
 {
   "input": {
-    "question": "Zelora",
-    "context": {
-      "population": "adult",
-      "setting": "clinic"
-    },
+    "question": "What should be done for fictional Zelora orange option?",
+    "context": {},
     "filters": []
   },
   "responses": {
     "reason": [
       {
-        "action": "search",
-        "arguments": {
-          "query": "Zelora",
-          "limit": 12
-        }
-      },
-      {
-        "action": "read",
-        "arguments": {
-          "corpus_id": {
-            "$input": "observations.0.result.0.revision"
-          },
-          "evidence_id": "guide3:0:0"
-        }
-      },
-      {
         "action": "submit",
         "result": {
-          "title": "Synthetic guideline answer",
           "claims": [
             {
-              "id": "C1",
-              "text": "The orange option is appropriate for fictional Zelora.",
-              "evidence_ids": [
-                "guide3:0:0",
-                "guide3:1:0"
+              "id": "Q1",
+              "text": "Prefer the orange simulation option.",
+              "evidence_refs": [
+                {
+                  "corpus_id": {
+                    "$input": "inputs.candidates.items.0.revision"
+                  },
+                  "evidence_id": {
+                    "$input": "inputs.candidates.items.0.id"
+                  }
+                }
               ]
             }
-          ]
-        }
-      },
-      {
-        "action": "search",
-        "arguments": {
-          "query": "Zelora",
-          "limit": 12
-        }
-      },
-      {
-        "action": "read",
-        "arguments": {
-          "corpus_id": {
-            "$input": "observations.0.result.0.revision"
-          },
-          "evidence_id": "guide3:0:0"
-        }
-      },
-      {
-        "action": "submit",
-        "result": {
-          "title": "Synthetic guideline answer",
-          "claims": [
+          ],
+          "conflicts": [
             {
               "id": "C1",
-              "text": "The orange option is appropriate for fictional Zelora.",
-              "evidence_ids": [
-                "guide3:0:0",
-                "guide3:1:0"
+              "topic": "Fictional Zelora orange option",
+              "alternatives": [
+                {
+                  "id": "A1",
+                  "statement": "Prefer the orange simulation option.",
+                  "evidence_refs": [
+                    {
+                      "corpus_id": {
+                        "$input": "inputs.candidates.items.0.revision"
+                      },
+                      "evidence_id": {
+                        "$input": "inputs.candidates.items.0.id"
+                      }
+                    }
+                  ],
+                  "applicability": "Adult clinic context",
+                  "claim_ids": [
+                    "Q1"
+                  ]
+                },
+                {
+                  "id": "A2",
+                  "statement": "Avoid the orange simulation option.",
+                  "evidence_refs": [
+                    {
+                      "corpus_id": {
+                        "$input": "inputs.candidates.items.1.revision"
+                      },
+                      "evidence_id": {
+                        "$input": "inputs.candidates.items.1.id"
+                      }
+                    }
+                  ],
+                  "applicability": "Adult clinic context",
+                  "claim_ids": [
+                    "Q1"
+                  ]
+                }
+              ],
+              "assessment_note": "The selected sources conflict.",
+              "claim_relations": [
+                {
+                  "claim_id": "Q1",
+                  "relation": "implicated",
+                  "reason": "The claim selects one side of the conflict."
+                }
               ]
             }
           ]
@@ -78,91 +84,33 @@
       {
         "assessments": [
           {
-            "claim_id": "C1",
-            "evidence_ids": [
-              "guide3:0:0",
-              "guide3:1:0"
-            ],
+            "claim_id": "Q1",
+            "evidence_refs": {
+              "$input": "claims.claims.0.evidence_refs"
+            },
             "decision": "support",
-            "reason": "Fictional sources disagree; unresolved."
+            "reason": "One source supports the claim."
           }
-        ]
-      },
-      {
-        "assessments": [
-          {
-            "claim_id": "C1",
-            "evidence_ids": [
-              "guide3:0:0",
-              "guide3:1:0"
-            ],
-            "decision": "support",
-            "reason": "Fictional sources disagree; unresolved."
-          }
-        ]
+        ],
+        "conflicts": []
       }
     ],
     "support.audit": [
       {
         "assessments": [
           {
-            "claim_id": "C1",
-            "evidence_ids": [
-              "guide3:0:0",
-              "guide3:1:0"
-            ],
-            "decision": "contradiction",
-            "reason": "Fictional sources disagree; unresolved."
+            "claim_id": "Q1",
+            "evidence_refs": {
+              "$input": "claims.claims.0.evidence_refs"
+            },
+            "decision": "support",
+            "reason": "One source supports the claim."
           }
-        ]
-      },
-      {
-        "assessments": [
-          {
-            "claim_id": "C1",
-            "evidence_ids": [
-              "guide3:0:0",
-              "guide3:1:0"
-            ],
-            "decision": "contradiction",
-            "reason": "Fictional sources disagree; unresolved."
-          }
-        ]
-      }
-    ],
-    "support.adjudicate": [
-      {
-        "assessments": [
-          {
-            "claim_id": "C1",
-            "evidence_ids": [
-              "guide3:0:0",
-              "guide3:1:0"
-            ],
-            "decision": "contradiction",
-            "reason": "Fictional sources disagree; unresolved."
-          }
-        ]
-      },
-      {
-        "assessments": [
-          {
-            "claim_id": "C1",
-            "evidence_ids": [
-              "guide3:0:0",
-              "guide3:1:0"
-            ],
-            "decision": "contradiction",
-            "reason": "Fictional sources disagree; unresolved."
-          }
-        ]
+        ],
+        "conflicts": []
       }
     ],
     "output_check": [
-      {
-        "status": "pass",
-        "findings": []
-      },
       {
         "status": "pass",
         "findings": []

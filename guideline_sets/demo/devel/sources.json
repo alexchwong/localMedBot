@@ -2,7 +2,7 @@
   {
     "id": "guide1",
     "format": "json",
-    "title": "Fictional guideline 1 \u2014 synthetic only",
+    "title": "Fictional adult clinic guidance",
     "content": {
       "items": [
         {
@@ -41,7 +41,7 @@
   {
     "id": "guide2",
     "format": "json",
-    "title": "Fictional guideline 2 \u2014 synthetic only",
+    "title": "Fictional population-specific guidance",
     "content": {
       "items": [
         {
@@ -80,7 +80,7 @@
   {
     "id": "guide3",
     "format": "json",
-    "title": "Fictional guideline 3 \u2014 synthetic only",
+    "title": "Fictional conflicting guidance",
     "content": {
       "items": [
         {

@@ -5,7 +5,4 @@ workflow: workflow.yaml
 policy: policy.yaml
 input_schema: input.schema.json
 ingestion: ingestion.yaml
-examples:
-- standard
-- conflict
-- missing
+examples: [standard, conflict, missing]
