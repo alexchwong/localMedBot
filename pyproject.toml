@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "localMedBot"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Bounded, source-linked clinical workflow prototype"
 requires-python = ">=3.10"
 dependencies = ["PyYAML>=6,<7", "jsonschema>=4.18,<5", "Flask>=3,<4"]
@@ -19,4 +19,7 @@ localmedbot = "localmedbot.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-localmedbot = ["templates/*.html", "static/*.css", "static/*.js"]
+localmedbot = ["templates/*.html", "static/*.css", "static/*.js", "version.json"]
+
+[tool.setuptools.dynamic]
+version = {attr = "localmedbot.__version__"}

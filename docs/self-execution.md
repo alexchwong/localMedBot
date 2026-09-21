@@ -11,11 +11,11 @@
 CLI example:
 
 ```bash
-localmedbot --developer run clinical_letter \
+.env/bin/localmedbot --developer run clinical_letter \
   --profile clinical_letter.self.default \
   --input synthetic-letter-input.json --input-mode free_text
-localmedbot --developer self export RUN_ID --output handoff.json
-localmedbot --developer self submit RUN_ID --response response.json
+.env/bin/localmedbot --developer self export RUN_ID --output handoff.json
+.env/bin/localmedbot --developer self submit RUN_ID --response response.json
 ```
 
 The response file is:
@@ -33,15 +33,13 @@ The one-step tester can use `self` exactly where an OpenRouter or LM Studio prof
 For example:
 
 ```bash
-localmedbot --developer steps run clinical_letter draft \
+.env/bin/localmedbot --developer steps run clinical_letter draft \
   --fixture tests/fixtures/steps/clinical_letter/draft/fixture-clinical_letter.draft.standard.v1.json \
   --profile clinical_letter.self.default
 
-localmedbot --developer self export RUN_ID --output handoff.json
+.env/bin/localmedbot --developer self export RUN_ID --output handoff.json
 # The current frontier/coding-model session writes response.json for this handoff.
-localmedbot --developer self submit RUN_ID --response response.json
+.env/bin/localmedbot --developer self submit RUN_ID --response response.json
 ```
 
-The same pattern applies to every model-dependent node returned by `localmedbot --developer steps list WORKFLOW`, including model-backed content checks and the guideline match/audit/adjudication stages. For agentic reasoning, a self response may request `search` or `read`; localMedBot executes that bounded tool itself and returns the observation in the next handoff.
-
-The 0.1.0 acceptance pass exercised all nine model-dependent nodes through `self`; see `docs/self-step-verification-0.1.0.json`.
+The same pattern applies to every model-dependent node returned by `.env/bin/localmedbot --developer steps list WORKFLOW`, including model-backed content checks and the guideline match/audit/adjudication stages. For agentic reasoning, a self response may request `search` or `read`; localMedBot executes that bounded tool itself and returns the observation in the next handoff.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 import argparse,getpass,json,sys,uuid,yaml
 from pathlib import Path
+from . import __version__
 from .contracts import Fault
 from .service import Service
 from .profiles import classify_destination
@@ -53,7 +54,7 @@ def main(argv=None):
         if a.command=="apps": result=service.applications()
         elif a.command=="check":
             for app in service.applications(): service.load(app["id"])
-            result={"status":"valid","version":"0.1.0","applications":len(service.applications())}
+            result={"status":"valid","version":__version__,"applications":len(service.applications())}
         elif a.command=="profiles":
             if a.profiles_command=="list": result=service.profile_list(a.workflow)
             else:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from pathlib import Path
 import json,yaml,uuid,subprocess
+from . import __version__
 from .compiler import asset,load_application
 from .contracts import Fault,validate
 from .storage import Store
@@ -88,7 +89,7 @@ class Service:
         node_input_schema={"type":"object","required":["data"],"additionalProperties":False,"properties":{"data":deepcopy(input_schema)}}
         output_schema={"type":"object","required":["corpus_id","items"],"additionalProperties":False,"properties":{"corpus_id":{"type":"string"},"items":{"type":"array","items":{"type":"object"}}}}
         node={"id":"import","module":"ingest","model_dependent":True,"inputs":{"data":"run.input"},"input_schema":node_input_schema,"config":{"profile":ingestion,"scope":"run","name":"guideline_import"},"schema":output_schema,"repairs":1}
-        snap={"manifest":{"id":"guideline_qa","name":"Guideline development import","version":app["manifest"].get("version","0.1.0")},"workflow":{"version":2,"nodes":[node],"output":"import"},"policy":deepcopy(app["policy"]),"input_schema":input_schema,"source_version":deepcopy(app.get("source_version"))}
+        snap={"manifest":{"id":"guideline_qa","name":"Guideline development import","version":app["manifest"].get("version",__version__)},"workflow":{"version":2,"nodes":[node],"output":"import"},"policy":deepcopy(app["policy"]),"input_schema":input_schema,"source_version":deepcopy(app.get("source_version"))}
         snap["policy"]["required_checks"]=[]; snap["policy"]["human_approval"]=False
         rid=self.runner.create(snap,{"sources":deepcopy(sources)},model_profile,origins={"task_input":"user_supplied","evidence":{},"revision_feedback":{}})
         run=self.store.run(rid); run["guideline_import"]={"set_id":set_id,"sources":deepcopy(sources),"profile":ingestion,"snapshot_id":None}; self.store.put_run(run)

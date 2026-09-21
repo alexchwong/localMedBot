@@ -11,3 +11,5 @@ A step fixture records workflow/node identity, step-contract version, resolved i
 - Recorded response tapes are separate assets. A tape explicitly references one immutable fixture ID/version; multiple tapes may intentionally test alternative or failing model behaviours.
 
 Do not place patient material in repository fixtures unless it has been deliberately reviewed and is authorised for repository storage.
+
+A test whose assertions depend on a repository fixture declares that dependency with a fixture dependency tag; see `docs/testing.md` and the policy in `docs/devel-sysprompt.md`.

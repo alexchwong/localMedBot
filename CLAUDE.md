@@ -1,3 +1,3 @@
 # Repository instructions
 
-Read and follow `docs/development-instructions.md` before modifying localMedBot. It is the canonical agent-neutral development policy for this repository.
+Read and follow `docs/devel-sysprompt.md` before modifying localMedBot. Use `docs/DEVEL.md` for repository setup, verification, versioning and package procedures. The development policy is agent-neutral and must not be duplicated or weakened here.

@@ -8,7 +8,7 @@ from threading import Thread
 from unittest.mock import patch
 import json, os, shutil, sqlite3, unittest, uuid
 
-from localmedbot import __version__, STORAGE_SCHEMA_VERSION, RUN_CONTRACT_VERSION, STEP_CONTRACT_VERSION
+from localmedbot import STORAGE_SCHEMA_VERSION, RUN_CONTRACT_VERSION, STEP_CONTRACT_VERSION
 from localmedbot.contracts import Fault, validate_actor
 from localmedbot.service import Service
 from localmedbot.profiles import classify_destination
@@ -52,8 +52,9 @@ class Base(unittest.TestCase):
         return rid,r
 
 class VersionAndProfileTests(Base):
-    def test_version_contracts(self):
-        self.assertEqual(__version__,'0.1.0'); self.assertEqual((STORAGE_SCHEMA_VERSION,RUN_CONTRACT_VERSION,STEP_CONTRACT_VERSION),(1,1,1))
+    def test_persisted_contract_versions(self):
+        # The product version is not a test constant; see docs/versioning.md.
+        self.assertEqual((STORAGE_SCHEMA_VERSION,RUN_CONTRACT_VERSION,STEP_CONTRACT_VERSION),(1,1,1))
         self.assertEqual(self.s.load('clinical_letter')['workflow']['version'],2)
         self.assertEqual(self.s.load('guideline_qa')['workflow']['version'],2)
     def test_profiles_exist_and_filter(self):
