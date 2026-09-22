@@ -35,6 +35,10 @@ def endpoint(responses):
 
 def reply(value):return {'model':'fixture-model','choices':[{'message':{'content':json.dumps(value)},'finish_reason':'stop'}],'usage':{'total_tokens':9}}
 def responses_reply(value):return {'id':'fixture-response','model':'fixture-model','status':'completed','output':[{'type':'message','content':[{'type':'output_text','text':json.dumps(value)}]}],'usage':{'input_tokens':4,'output_tokens':5,'total_tokens':9}}
+def responses_raw(text):
+    result=responses_reply(None)
+    result['output'][0]['content'][0]['text']=text
+    return result
 def native_reply(value):return {'response_id':'fixture-native','model':'fixture-model','output':[{'type':'message','content':json.dumps(value)}],'stats':{'input_tokens':4,'total_output_tokens':5,'reasoning_output_tokens':1}}
 
 class HTTPRegressionTests(unittest.TestCase):
@@ -93,6 +97,60 @@ class HTTPRegressionTests(unittest.TestCase):
                 self.assertTrue(result['success'],result);self.assertTrue(requests)
                 self.assertTrue(all(row['path'].endswith('/responses') for row in requests))
                 self.assertTrue(all(row['body'].get('reasoning')=={'effort':'high'} for row in requests))
+                self.assertTrue(all(row['attempts']==1 and row['repairs_used']==0 for row in result['results']))
+
+    def test_lmstudio_verification_repairs_syntax_and_schema_output(self):
+        valid={'action':'submit','result':{'ok':True}}
+        for failed,code in (('{broken','syntax.invalid_json'),(json.dumps({'action':'submit','result':{'ok':False}}),'schema.const')):
+            with self.subTest(code=code), TemporaryDirectory() as td:
+                s=Service(APPS,td,PROFILES,GUIDES,FIXTURES);self.addCleanup(s.close)
+                with endpoint([responses_raw(failed),responses_reply(valid)]) as (url,requests):
+                    pid='clinical_letter.lmstudio.default'
+                    s.configure_profile(pid,{'base_url':url,'model':'fixture','settings':{'reasoning':'high'}})
+                    result=s.verify_provider(pid,'clinical_letter')
+                    self.assertTrue(result['success'],result)
+                    self.assertEqual(len(result['results']),1)
+                    self.assertEqual(len(requests),2)
+                    self.assertEqual((result['results'][0]['attempts'],result['results'][0]['repairs_used']),(2,1))
+                    self.assertTrue(all(row['path'].endswith('/responses') for row in requests))
+                    self.assertTrue(all('response_format' not in row['body'] for row in requests))
+                    first=requests[0]['body']['input']; second=requests[1]['body']['input']
+                    self.assertEqual(second[:2],first)
+                    self.assertEqual(second[2],{'role':'assistant','content':failed})
+                    self.assertEqual(second[3]['role'],'user')
+                    self.assertIn(code,second[3]['content'])
+                    envelope=json.loads(second[3]['content'][second[3]['content'].rfind('\n{')+1:])
+                    self.assertEqual(envelope['failed_raw_response'],failed)
+                    self.assertEqual(envelope['findings'][0]['code'],code)
+
+    def test_lmstudio_verification_exhausts_configured_output_repairs(self):
+        failed='{broken'
+        with TemporaryDirectory() as td:
+            s=Service(APPS,td,PROFILES,GUIDES,FIXTURES);self.addCleanup(s.close)
+            limit=s.execution_defaults['output_repair_retries']
+            with endpoint([responses_raw(failed) for _ in range(limit+1)]) as (url,requests):
+                pid='clinical_letter.lmstudio.default'
+                s.configure_profile(pid,{'base_url':url,'model':'fixture','settings':{'reasoning':'high'}})
+                result=s.verify_provider(pid,'clinical_letter')
+                self.assertFalse(result['success'])
+                self.assertEqual(len(result['results']),1)
+                self.assertEqual(len(requests),limit+1)
+                self.assertEqual((result['results'][0]['attempts'],result['results'][0]['repairs_used']),(limit+1,limit))
+                self.assertEqual(result['results'][0]['error']['code'],'syntax_invalid')
+                self.assertEqual(result['results'][0]['error']['findings'][0]['code'],'syntax.invalid_json')
+
+    def test_lmstudio_verification_does_not_repair_provider_rejection(self):
+        with TemporaryDirectory() as td:
+            s=Service(APPS,td,PROFILES,GUIDES,FIXTURES);self.addCleanup(s.close)
+            with endpoint([responses_raw('{broken'),(400,{'error':'rejected'})]) as (url,requests):
+                pid='clinical_letter.lmstudio.default'
+                s.configure_profile(pid,{'base_url':url,'model':'fixture','settings':{'reasoning':'high'}})
+                result=s.verify_provider(pid,'clinical_letter')
+                self.assertFalse(result['success'])
+                self.assertEqual(len(requests),2)
+                self.assertEqual((result['results'][0]['attempts'],result['results'][0]['repairs_used']),(2,1))
+                self.assertEqual(result['results'][0]['error']['code'],'provider_request_rejected')
+
     def test_http_pipeline_does_not_persist_secret(self):
         with TemporaryDirectory() as td:
             s=Service(APPS,td,PROFILES,GUIDES,FIXTURES);self.addCleanup(s.close)

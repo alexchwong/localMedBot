@@ -168,9 +168,11 @@ class ProviderTests(Base):
             self.assertTrue(all(x['json']['model']=='fixture-model' for x in requests))
             self.assertTrue(all(x['json'].get('reasoning')=={'effort':'high'} for x in requests)); self.assertTrue(all('response_format' not in x['json'] for x in requests))
     def test_http_auth_rejected_no_fallback(self):
-        with endpoint([401]) as (url,_):
+        with endpoint([401]) as (url,requests):
             pid='clinical_letter.openrouter.default'; self.s.configure_profile(pid,{'base_url':url,'model':'fixture-model'},credential='fixture-token')
             result=self.s.verify_provider(pid,'clinical_letter'); self.assertFalse(result['success']); self.assertEqual(result['results'][0]['error']['code'],'authentication_rejected')
+            self.assertEqual(len(requests),1)
+            self.assertEqual((result['results'][0]['attempts'],result['results'][0]['repairs_used']),(1,0))
 
 class GuidelineLifecycleTests(unittest.TestCase):
     def test_devel_is_frozen_and_promotion_independent(self):

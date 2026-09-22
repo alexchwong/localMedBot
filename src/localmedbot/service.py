@@ -16,6 +16,7 @@ from .fixtures import FixtureManager
 from .paths import RuntimePaths, default_execution_config
 from .usage import aggregate_usage
 from .errors import present_error
+from .audit import audit_json,audit_fault,repair_feedback
 
 def _source_version(root):
     try:
@@ -219,11 +220,28 @@ class Service:
         prompt="Return only the requested structured protocol-verification response."; payload={"task":"synthetic protocol verification","expected":{"action":"submit","result":{"ok":True}}}
         try: provider=make_provider(profile,self.profiles.credential(profile))
         except Fault as exc:
-            results=[{"role":role,"success":False,"error":present_error(exc)} for role in combinations.values()]
+            results=[{"role":role,"success":False,"attempts":0,"repairs_used":0,"error":present_error(exc)} for role in combinations.values()]
             return {"profile_id":profile_id,"destination":profile["destination"],"results":results,"success":False}
         for _,role in combinations.items():
-            settings=profile["effective_roles"][role]; messages=self.model_steps.build_messages(prompt,payload,schema); req={"request_id":uuid.uuid4().hex,"role":role,"messages":messages,"timeout":settings.get("timeout_seconds",60),"output_schema":schema}
-            try:
-                response=provider.complete(req,"verify",0); self.model_steps.parse_text(response["text"],schema); results.append({"role":role,"success":True,"elapsed":response.get("duration"),"returned_model":response.get("returned_model")})
-            except Fault as exc: results.append({"role":role,"success":False,"error":present_error(exc)})
+            settings=profile["effective_roles"][role]; base=self.model_steps.build_messages(prompt,payload,schema); messages=base
+            attempts=0; repairs_used=0; failures=[]
+            while True:
+                req={"request_id":uuid.uuid4().hex,"role":role,"messages":messages,"timeout":settings.get("timeout_seconds",60),"output_schema":schema}
+                attempts+=1
+                try: response=provider.complete(req,"verify",repairs_used)
+                except Fault as exc:
+                    results.append({"role":role,"success":False,"attempts":attempts,"repairs_used":repairs_used,"error":present_error(exc)})
+                    break
+                raw=response["text"]; _,audit=audit_json(raw,schema)
+                if audit["valid"]:
+                    results.append({"role":role,"success":True,"attempts":attempts,"repairs_used":repairs_used,"elapsed":response.get("duration"),"returned_model":response.get("returned_model")})
+                    break
+                if audit["phase"] not in {"syntax","schema"} or repairs_used>=self.execution_defaults["output_repair_retries"]:
+                    results.append({"role":role,"success":False,"attempts":attempts,"repairs_used":repairs_used,"error":present_error(audit_fault(audit))})
+                    break
+                repeats=sum(1 for failed_raw,findings in failures if failed_raw==raw and findings==audit["findings"])
+                rendered,envelope=repair_feedback(phase=audit["phase"],task_prompt=prompt,source_context=payload,output_schema=schema,allowed_actions=None,failed_raw=raw,findings=audit["findings"],repeat_count=repeats)
+                failures.append((raw,audit["findings"]))
+                messages=self.model_steps.build_repair_messages(base,raw,rendered,envelope)
+                repairs_used+=1
         return {"profile_id":profile_id,"destination":profile["destination"],"results":results,"success":all(x["success"] for x in results)}
