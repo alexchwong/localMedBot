@@ -2,10 +2,12 @@
 from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 import secrets,uuid
-from flask import Flask,request,jsonify,render_template,g
+from flask import Flask,request,jsonify,render_template,g,send_file
 from werkzeug.exceptions import HTTPException
 from .contracts import Fault
 from .knowledge import Knowledge
+from .errors import present_error
+from . import __version__
 
 _MUTATING={"POST","PUT","PATCH","DELETE"}
 
@@ -47,16 +49,22 @@ def create_app(service):
     @app.errorhandler(Fault)
     def fault(exc):
         code=exc.code; status=403 if code in {"developer_disabled","scope_denied"} else 404 if code.endswith("_not_found") else 413 if code=="input_too_large" else 409 if code.startswith("stale_") or code in {"review_request_conflict","response_already_submitted","run_active","run_not_active","review_revision_required"} else 400
-        return jsonify(error={"code":code,"detail":exc.detail,"findings":exc.findings}),status
+        return jsonify(error=present_error(exc)),status
     @app.errorhandler(HTTPException)
-    def http_error(exc): return jsonify(error={"code":"http_error","status":exc.code}),exc.code
+    def http_error(exc): return jsonify(error={**present_error({"code":"http_error","detail":str(exc)}),"status":exc.code}),exc.code
     @app.errorhandler(KeyError)
     @app.errorhandler(TypeError)
     @app.errorhandler(ValueError)
-    def invalid(_): return jsonify(error={"code":"invalid_input"}),400
+    def invalid(exc): return jsonify(error=present_error({"code":"invalid_input","detail":str(exc)})),400
+
+    @app.errorhandler(Exception)
+    def unexpected(exc):
+        # Do not expose tracebacks or guess at a cause. The shared formatter
+        # supplies a stable diagnostic reference for logs/support.
+        return jsonify(error=present_error(exc)),500
 
     @app.get("/")
-    def home(): return render_template("index.html",token=session()["csrf"])
+    def home(): return render_template("index.html",token=session()["csrf"],version=__version__)
     @app.get("/api/session")
     def session_state(): return jsonify(developer_enabled=session()["developer_enabled"],csrf=session()["csrf"])
     @app.post("/api/developer-mode")
@@ -64,6 +72,8 @@ def create_app(service):
         d=body({"enabled"},{"enabled"})
         if not isinstance(d["enabled"],bool): raise Fault("invalid_input")
         session()["developer_enabled"]=d["enabled"]; return jsonify(developer_enabled=session()["developer_enabled"])
+    @app.get("/api/runtime")
+    def runtime_info(): return jsonify(version=__version__,state_root=str(service.paths.state_root),runs_root=str(service.paths.runs_root),config_root=str(service.paths.config_root),execution_defaults=service.execution_defaults)
     @app.get("/api/applications")
     def applications(): return jsonify(service.applications())
     @app.get("/api/examples/<app_id>/<example>")
@@ -86,7 +96,7 @@ def create_app(service):
         return jsonify(rows)
     @app.post("/api/runs")
     def start():
-        d=body({"workflow_id","profile_id","input_mode","input","profile_overrides","guideline_selection","example","copy_input_id"},{"workflow_id","profile_id"}); mode=d.get("input_mode","free_text"); input_data=d.get("input",{}); derived=None; origin=None
+        d=body({"workflow_id","profile_id","input_mode","input","profile_overrides","guideline_selection","example","copy_input_id","retry_overrides"},{"workflow_id","profile_id"}); mode=d.get("input_mode","free_text"); input_data=d.get("input",{}); derived=None; origin=None
         if mode=="advanced": dev_required()
         if mode=="copied":
             token=d.get("copy_input_id"); copied=session()["copies"].get(token)
@@ -95,7 +105,7 @@ def create_app(service):
             if d["workflow_id"]=="guideline_qa":
                 sel=d.get("guideline_selection") or {}
                 if not isinstance(sel.get("set_id"),str) or not sel.get("set_id") or not isinstance(sel.get("selector"),str) or not sel.get("selector"): raise Fault("guideline_selection_required")
-        rid=service.start(d["workflow_id"],d["profile_id"],mode,input_data,d.get("profile_overrides"),d.get("guideline_selection"),d.get("example"),developer=session()["developer_enabled"],derived_from_run_id=derived,origin_override=origin)
+        rid=service.start(d["workflow_id"],d["profile_id"],mode,input_data,d.get("profile_overrides"),d.get("guideline_selection"),d.get("example"),developer=session()["developer_enabled"],derived_from_run_id=derived,origin_override=origin,retry_overrides=d.get("retry_overrides"))
         if mode=="copied": session()["copies"].pop(d["copy_input_id"],None)
         launch(rid); return jsonify(id=rid),202
     @app.get("/api/runs/<rid>")
@@ -112,6 +122,9 @@ def create_app(service):
     def review(rid): return jsonify(status=service.review(rid,body({"review_request_id","revision","actor","decision","comments","target","omissions","acknowledged_omission_ids","acknowledged_conflict_ids","expected_block"},{"review_request_id","actor","decision"}))["status"])
     @app.delete("/api/runs/<rid>")
     def delete(rid): service.delete(rid); return jsonify(deleted=True)
+    @app.get("/api/runs/<rid>/download/<path:relpath>")
+    def download(rid,relpath):
+        path=service.store.download_path(rid,relpath); return send_file(path,as_attachment=True,download_name=path.name)
     @app.post("/api/runs/<rid>/copy-input")
     def copy_input(rid):
         body(set()); copied=service.legacy_copy_payload(rid); token=uuid.uuid4().hex
@@ -125,8 +138,8 @@ def create_app(service):
     def steps(workflow): dev_required(); return jsonify(service.steps(workflow))
     @app.post("/api/dev/step-runs")
     def step_run():
-        dev_required(); d=body({"workflow_id","node_id","profile_id","fixture","profile_overrides","tape","configuration_source"},{"workflow_id","node_id","profile_id","fixture"}); fixture=d["fixture"]; tape=d.get("tape")
-        rid=service.run_step(d["workflow_id"],d["node_id"],fixture,d["profile_id"],d.get("profile_overrides"),tape=tape,configuration_source=d.get("configuration_source","current"),developer=True); launch(rid); return jsonify(id=rid),202
+        dev_required(); d=body({"workflow_id","node_id","profile_id","fixture","profile_overrides","tape","configuration_source","retry_overrides"},{"workflow_id","node_id","profile_id","fixture"}); fixture=d["fixture"]; tape=d.get("tape")
+        rid=service.run_step(d["workflow_id"],d["node_id"],fixture,d["profile_id"],d.get("profile_overrides"),tape=tape,configuration_source=d.get("configuration_source","current"),developer=True,retry_overrides=d.get("retry_overrides")); launch(rid); return jsonify(id=rid),202
     @app.get("/api/dev/fixtures")
     def list_fixtures(): dev_required(); return jsonify(service.list_fixtures())
     @app.post("/api/dev/fixtures")

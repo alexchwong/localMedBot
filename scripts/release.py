@@ -437,14 +437,14 @@ def smoke_archive(root: Path, commit: str, archive_path: Path) -> tuple[dict, di
             raise ToolError("smoke_failed", stage="check")
 
         run = _json_stage(
-            [str(cli), "--data", ".localmedbot-smoke", "run", "guideline_qa", "--profile", "guideline_qa.recorded.default", "--example", "standard"],
+            [str(cli), "--data", "state-smoke", "--runs-root", "runs-smoke", "run", "guideline_qa", "--profile", "guideline_qa.recorded.default", "--example", "standard"],
             cwd=extracted,
             env=child_env,
             stage="recorded_workflow",
         )
         if run.get("status") != "waiting_review" or not isinstance(run.get("id"), str):
             raise ToolError("smoke_failed", stage="recorded_workflow")
-        status = _json_stage([str(cli), "--data", ".localmedbot-smoke", "status", run["id"]], cwd=extracted, env=child_env, stage="status")
+        status = _json_stage([str(cli), "--data", "state-smoke", "--runs-root", "runs-smoke", "status", run["id"]], cwd=extracted, env=child_env, stage="status")
         artifacts = status.get("artifacts")
         workflow_output = status.get("run", {}).get("snapshot", {}).get("workflow", {}).get("output")
         if not isinstance(artifacts, dict) or not workflow_output or workflow_output not in artifacts:

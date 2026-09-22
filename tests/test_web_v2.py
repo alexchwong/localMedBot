@@ -56,15 +56,14 @@ HAS_PLAYWRIGHT=importlib.util.find_spec('playwright') is not None
 @unittest.skipUnless(__import__('os').environ.get('LOCALMEDBOT_BROWSER_TESTS')=='1','Real browser tests are opt-in')
 class BrowserTests(unittest.TestCase):
     def setUp(self):
-        from threading import Thread
-        from werkzeug.serving import make_server
+        import shutil
         from playwright.sync_api import sync_playwright
         from localmedbot.service import Service
         from localmedbot.web import create_app
+        from tests.browser_harness import mount_browser_ui
         self.tmp=TemporaryDirectory(); self.addCleanup(self.tmp.cleanup); self.service=Service(APPS,self.tmp.name,PROFILES,GUIDES,FIXTURES); self.addCleanup(self.service.close)
-        self.app=create_app(self.service); self.addCleanup(self.app.extensions['localmedbot_pool'].shutdown); self.server=make_server('127.0.0.1',0,self.app,threaded=True); self.thread=Thread(target=self.server.serve_forever,daemon=True); self.thread.start(); self.addCleanup(self.stop)
-        self.p=sync_playwright().start(); self.addCleanup(self.p.stop); self.browser=self.p.chromium.launch(headless=True); self.addCleanup(self.browser.close); self.page=self.browser.new_page(); self.page.goto(f'http://127.0.0.1:{self.server.server_port}')
-    def stop(self): self.server.shutdown(); self.server.server_close(); self.thread.join()
+        self.app=create_app(self.service); self.addCleanup(self.app.extensions['localmedbot_pool'].shutdown)
+        self.p=sync_playwright().start(); self.addCleanup(self.p.stop); browser_path=shutil.which('chromium') or shutil.which('chromium-browser') or shutil.which('google-chrome'); launch={'headless':True}; launch.update({'executable_path':browser_path} if browser_path else {}); self.browser=self.p.chromium.launch(**launch); self.addCleanup(self.browser.close); self.page=self.browser.new_page(viewport={'width':1366,'height':768}); self.client=mount_browser_ui(self.page,self.app,ROOT)
     def wait(self,state): self.page.wait_for_function('(s)=>document.querySelector("#status").dataset.state===s',arg=state,timeout=20000)
     def test_conflict_requires_explicit_acknowledgement(self):
         p=self.page; p.get_by_test_id('application').select_option('guideline_qa'); p.locator('#profile').select_option('guideline_qa.recorded.default'); p.locator('#input-mode').select_option('demo'); p.locator('#example').select_option('conflict'); p.get_by_test_id('start').click(); self.wait('waiting_review'); p.locator('#actor').fill('Browser reviewer'); p.locator('#approve').click(); self.wait('waiting_review'); p.locator('[data-conflict]').first.check(); p.locator('#approve').click(); self.wait('completed')

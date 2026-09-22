@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "output_repair_retries": 3,
+  "semantic_revision_retries": 3
+}

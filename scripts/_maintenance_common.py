@@ -280,12 +280,9 @@ def _decode_text(data: bytes, path: str, state: str) -> str:
         raise ToolError("version_representation_invalid", path=path, detail=f"state={state}") from exc
 
 
-def application_version(data: bytes, path: str, state: str) -> str:
+def application_has_product_version(data: bytes, path: str, state: str) -> bool:
     text = _decode_text(data, path, state)
-    matches = re.findall(r"(?m)^version:\s*([^#\s]+)\s*(?:#.*)?$", text)
-    if len(matches) != 1:
-        raise ToolError("version_representation_invalid", path=path, detail=f"state={state}")
-    return matches[0].strip("\"'")
+    return re.search(r"(?m)^version:\s*[^#\s]+", text) is not None
 
 
 def _pyproject_wiring(data: bytes, state: str) -> None:
@@ -338,9 +335,8 @@ def check_source_version_state(
     if not app_paths:
         raise ToolError("version_representation_missing", path="applications/*/application.yaml", detail=f"state={state}")
     for path in app_paths:
-        value = application_version(reader(path), path, state)
-        if value != metadata["version"]:
-            raise ToolError("version_mismatch", path=path, detail=f"state={state}")
+        if application_has_product_version(reader(path), path, state):
+            raise ToolError("version_wiring_invalid", path=path, detail=f"state={state};duplicated_product_version")
     return metadata
 
 

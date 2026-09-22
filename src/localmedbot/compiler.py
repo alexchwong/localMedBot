@@ -5,6 +5,7 @@ from copy import deepcopy
 import json,yaml
 from jsonschema import Draft202012Validator
 from .contracts import Fault
+from . import __version__
 
 
 def asset(root,name):
@@ -20,6 +21,8 @@ def artifact_ref(ref,node_ids):
 def load_application(root,registry):
     root=Path(root); manifest=yaml.safe_load(asset(root,"application.yaml").read_text(encoding="utf-8"))
     workflow=yaml.safe_load(asset(root,manifest["workflow"]).read_text(encoding="utf-8")); policy=yaml.safe_load(asset(root,manifest["policy"]).read_text(encoding="utf-8"))
+    # The current product version has one authored authority: version.json.
+    manifest["version"]=__version__
     for include in workflow.pop("includes",[]):
         component=yaml.safe_load(asset(root,include).read_text(encoding="utf-8")); workflow["nodes"].extend(component["nodes"])
     for node in workflow["nodes"]:
@@ -58,8 +61,10 @@ def compile_workflow(snapshot,registry):
             ref=cond.get("from","")
             if not ref.startswith("artifacts.") or artifact_ref(ref,by_id)[0] not in ancestors[name]: raise Fault("invalid_condition_binding")
         review=n.get("review")
-        if review and (review.get("target") not in ancestors[name] or not isinstance(review.get("max_revisions"),int) or review["max_revisions"]<0): raise Fault("invalid_review")
-        if n.get("repairs",0)<0: raise Fault("invalid_retry_limit")
+        if review:
+            if review.get("target") not in ancestors[name]: raise Fault("invalid_review")
+            if "max_revisions" in review and (isinstance(review["max_revisions"],bool) or not isinstance(review["max_revisions"],int) or review["max_revisions"]<0): raise Fault("invalid_review")
+        if "repairs" in n and (isinstance(n["repairs"],bool) or not isinstance(n["repairs"],int) or n["repairs"]<0): raise Fault("invalid_retry_limit")
     for required in policy.get("required_checks",[]):
         if required not in by_id or by_id[required]["module"]!="content_check": raise Fault("missing_required_check",required)
     output=wf.get("output")
@@ -70,6 +75,8 @@ def compile_workflow(snapshot,registry):
         if by_id[gate].get("when") or set(ids)-{gate}!=ancestors[gate] or output not in ancestors[gate]: raise Fault("invalid_human_gate")
     for check in policy.get("required_checks",[]):
         if check not in ancestors.get(wf.get("review_node"),set()): raise Fault("ungated_check",check)
+    for key in ("output_repair_retries","semantic_revision_retries"):
+        if key in policy and (isinstance(policy[key],bool) or not isinstance(policy[key],int) or policy[key]<0): raise Fault("invalid_retry_limit",key)
     limits=policy.get("limits",{})
     defaults={"turns":120,"tool_calls":40,"tokens":4_000_000,"seconds":1800,"node_turns":24,"node_tool_calls":20,"node_tokens":1_500_000,"node_seconds":600}
     for k,v in defaults.items(): limits.setdefault(k,v)

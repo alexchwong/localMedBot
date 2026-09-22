@@ -13,6 +13,9 @@ from .profiles import ProfileRegistry,CredentialVault
 from .runtime import Runner,aggregate_origins
 from .guidelines import GuidelineRegistry
 from .fixtures import FixtureManager
+from .paths import RuntimePaths, default_execution_config
+from .usage import aggregate_usage
+from .errors import present_error
 
 def _source_version(root):
     try:
@@ -23,17 +26,29 @@ def _source_version(root):
         return {"commit":None,"dirty":None}
 
 class Service:
-    def __init__(self,apps="applications",data=".localmedbot",profiles="model_profiles",guidelines="guideline_sets",fixtures="tests/fixtures/steps",writer=True):
-        self.apps=Path(apps).resolve(); self.store=Store(data,writer=writer); self.registry=registry(); self.vault=CredentialVault(); self.profiles=ProfileRegistry(profiles,self.store,self.vault)
-        self.model_steps=ModelSteps(self.store,self.profiles); self.runner=Runner(self.store,self.registry,self.model_steps); self.guidelines=GuidelineRegistry(guidelines,self.store); self.fixtures=FixtureManager(self.store,fixtures,data)
+    def __init__(self,apps="applications",data=None,profiles="model_profiles",guidelines="guideline_sets",fixtures="tests/fixtures/steps",writer=True,runs_root=None,config_root=None,launch_root=None):
+        self.apps=Path(apps).resolve(); explicit_state=data is not None
+        launch=Path(launch_root or self.apps.parent).resolve()
+        fixture_repo=Path(fixtures).resolve(); fixture_root=fixture_repo.parent if fixture_repo.name=="steps" else fixture_repo
+        effective_runs=runs_root
+        if explicit_state and effective_runs is None: effective_runs=Path(data).resolve()/"runs"
+        self.paths=RuntimePaths.resolve(launch_root=launch,state_root=data,runs_root=effective_runs,config_root=config_root,fixtures_root=fixture_root).ensure_runtime_dirs(writer=writer,explicit_state=explicit_state)
+        self.execution_defaults=default_execution_config(self.paths.config_root)
+        self.store=Store(self.paths.state_root,writer=writer,runs_root=self.paths.runs_root); self.registry=registry(); self.vault=CredentialVault(); self.profiles=ProfileRegistry(profiles,self.store,self.vault)
+        self.model_steps=ModelSteps(self.store,self.profiles); self.runner=Runner(self.store,self.registry,self.model_steps); self.guidelines=GuidelineRegistry(guidelines,self.store)
+        self.fixtures=FixtureManager(self.store,fixtures,self.paths.scratch_root)
     def close(self): self.store.close()
-    def applications(self): return [yaml.safe_load(p.read_text(encoding="utf-8")) for p in sorted(self.apps.glob("*/application.yaml"))]
+    def applications(self):
+        rows=[]
+        for p in sorted(self.apps.glob("*/application.yaml")):
+            doc=yaml.safe_load(p.read_text(encoding="utf-8")); doc["version"]=__version__; rows.append(doc)
+        return rows
     def root(self,app):
         matches=[p.parent for p in self.apps.glob("*/application.yaml") if yaml.safe_load(p.read_text(encoding="utf-8"))["id"]==app]
         if len(matches)!=1: raise Fault("application_not_found")
         return matches[0]
     def load(self,app):
-        root=self.root(app); snap=load_application(root,self.registry); snap["input_schema"]=json.loads(asset(root,snap["manifest"]["input_schema"]).read_text(encoding="utf-8")); snap["source_version"]=_source_version(self.apps.parent); return snap
+        root=self.root(app); snap=load_application(root,self.registry); snap["input_schema"]=json.loads(asset(root,snap["manifest"]["input_schema"]).read_text(encoding="utf-8")); snap["source_version"]=_source_version(self.apps.parent); snap["execution_defaults"]=deepcopy(self.execution_defaults); return snap
     def example(self,app,name):
         if not name or "/" in name or "\\" in name or ".." in name: raise Fault("example_name")
         return json.loads(asset(self.root(app),f"examples/{name}.json").read_text(encoding="utf-8"))
@@ -56,8 +71,9 @@ class Service:
         if input_mode in {"advanced","copied"}:
             return deepcopy(data),None,{"task_input":"user_supplied" if input_mode=="advanced" else "unknown","evidence":{},"revision_feedback":{}}
         raise Fault("input_mode_invalid")
-    def start(self,workflow_id,profile_id,input_mode="free_text",input_data=None,profile_overrides=None,guideline_selection=None,example=None,developer=False,derived_from_run_id=None,origin_override=None):
+    def start(self,workflow_id,profile_id,input_mode="free_text",input_data=None,profile_overrides=None,guideline_selection=None,example=None,developer=False,derived_from_run_id=None,origin_override=None,retry_overrides=None):
         snap=self.load(workflow_id); profile=self.profiles.resolve(profile_id,profile_overrides or {},workflow_id=workflow_id,runnable=True)
+        if retry_overrides and not developer: raise Fault("developer_disabled")
         self.store.set_preference("selected_profile:"+workflow_id,profile_id)
         if profile["executor"]=="self" and not developer: raise Fault("developer_disabled")
         value,recording,origins=self._adapt_input(workflow_id,input_mode,input_data or {},example)
@@ -69,7 +85,7 @@ class Service:
         elif profile["executor"]=="recorded": raise Fault("recorded_input_mismatch")
         if workflow_id=="guideline_qa":
             sel=guideline_selection or {"set_id":"demo","selector":"default"}; resolved=self.guidelines.resolve(sel["set_id"],sel.get("selector","default"),developer=developer); corpora=[resolved["corpus_id"]]; snap["guideline_selection"]=resolved; origins["evidence"][resolved["corpus_id"]]=resolved["content_origin"]
-        return self.runner.create(snap,value,profile,corpora,origins=origins,derived_from_run_id=derived_from_run_id)
+        return self.runner.create(snap,value,profile,corpora,origins=origins,derived_from_run_id=derived_from_run_id,retry_overrides=retry_overrides)
 
     def _finalize_guideline_import(self,rid):
         run=self.store.run(rid); meta=run.get("guideline_import")
@@ -88,9 +104,9 @@ class Service:
         input_schema={"type":"object","required":["sources"],"additionalProperties":False,"properties":{"sources":{"type":"array","minItems":1,"items":{"type":"object"}}}}
         node_input_schema={"type":"object","required":["data"],"additionalProperties":False,"properties":{"data":deepcopy(input_schema)}}
         output_schema={"type":"object","required":["corpus_id","items"],"additionalProperties":False,"properties":{"corpus_id":{"type":"string"},"items":{"type":"array","items":{"type":"object"}}}}
-        node={"id":"import","module":"ingest","model_dependent":True,"inputs":{"data":"run.input"},"input_schema":node_input_schema,"config":{"profile":ingestion,"scope":"run","name":"guideline_import"},"schema":output_schema,"repairs":1}
-        snap={"manifest":{"id":"guideline_qa","name":"Guideline development import","version":app["manifest"].get("version",__version__)},"workflow":{"version":2,"nodes":[node],"output":"import"},"policy":deepcopy(app["policy"]),"input_schema":input_schema,"source_version":deepcopy(app.get("source_version"))}
-        snap["policy"]["required_checks"]=[]; snap["policy"]["human_approval"]=False
+        node={"id":"import","module":"ingest","model_dependent":True,"inputs":{"data":"run.input"},"input_schema":node_input_schema,"config":{"profile":ingestion,"scope":"run","name":"guideline_import"},"schema":output_schema}
+        snap={"manifest":{"id":"guideline_qa","name":"Guideline development import","version":__version__},"workflow":{"version":2,"nodes":[node],"output":"import"},"policy":deepcopy(app["policy"]),"input_schema":input_schema,"source_version":deepcopy(app.get("source_version"))}
+        snap["policy"]["required_checks"]=[]; snap["policy"]["human_approval"]=False; snap["execution_defaults"]=deepcopy(self.execution_defaults)
         rid=self.runner.create(snap,{"sources":deepcopy(sources)},model_profile,origins={"task_input":"user_supplied","evidence":{},"revision_feedback":{}})
         run=self.store.run(rid); run["guideline_import"]={"set_id":set_id,"sources":deepcopy(sources),"profile":ingestion,"snapshot_id":None}; self.store.put_run(run)
         run=self.runner.advance(rid)
@@ -109,10 +125,19 @@ class Service:
             raise Fault("legacy_input_conversion_required",findings=exc.findings) from None
         return {"workflow_id":workflow,"input":deepcopy(run.get("input")),"derived_from_run_id":rid,"origins":deepcopy(run.get("origins") or {"task_input":"unknown","evidence":{},"revision_feedback":{}}),"old_metadata":{"status":run.get("status")}}
     def inspect(self,rid,developer=False):
-        run=self.store.run(rid); artifacts={node:self.store.artifact(rid,node,rev) for node,rev in run.get("active",{}).items()}; result={"run":run,"artifacts":artifacts,"events":self.store.events(rid)}
-        if developer:
-            result["step_attempts"]=self.store.step_attempts(rid); result["model_calls"]=self.store.model_calls(rid); result["tool_calls"]=self.store.tool_calls(rid)
-            if run.get("waiting_request_id"): result["handoff"]=self.model_steps.handoff(rid)
+        result=self.store.inspection_snapshot(rid); run=result["run"]
+        result["usage"]=aggregate_usage(result["model_calls"],result["physical_calls"],result["semantic_revisions"])
+        result["paths"]={"run_folder":str(self.store.run_dir(rid).resolve()),"state_root":str(self.paths.state_root),"runs_root":str(self.paths.runs_root)}
+        stored=run.get("error")
+        if isinstance(stored,dict) and stored:
+            if stored.get("explanation") and stored.get("remedy"):
+                result["current_error"]=deepcopy(stored)
+            else:
+                result["current_error"]=present_error(stored,fallback=True)
+                result["current_error"]["presentation_source"]="current_fallback_for_legacy_error"
+        else:
+            result["current_error"]=None
+        if run.get("waiting_request_id") and developer: result["handoff"]=self.model_steps.handoff(rid)
         return result
     def resume(self,rid):
         run=self.runner.resume(rid)
@@ -124,7 +149,7 @@ class Service:
     def review(self,rid,payload): return self.runner.review(rid,payload)
     def delete(self,rid): self.store.delete_run(rid)
     def steps(self,workflow_id):
-        snap=self.load(workflow_id); return [{"id":n["id"],"module":n["module"],"input_schema":n.get("input_schema",{}),"role":n.get("config",{}).get("role")} for n in snap["workflow"]["nodes"] if n.get("model_dependent")]
+        snap=self.load(workflow_id); return [{"id":n["id"],"module":n["module"],"purpose":n.get("config",{}).get("purpose") or f"Execute the {n["id"]} model stage.","input_schema":n.get("input_schema",{}),"output_schema":n.get("schema",{}),"role":n.get("config",{}).get("role")} for n in snap["workflow"]["nodes"] if n.get("model_dependent")]
     def capture_fixture(self,rid,node,attempt): return self.fixtures.capture(self.store.run(rid),node,attempt)
     def _validate_fixture_for_step(self,doc):
         self.fixtures.validate_envelope(doc); snap=self.load(doc["workflow_id"]); nodes={n["id"]:n for n in snap["workflow"]["nodes"]}
@@ -138,7 +163,7 @@ class Service:
     def promote_fixture(self,fixture_id,version,new_id,new_version,suitability,acknowledge,actor):
         doc=self.fixtures.registered(fixture_id,version); self._validate_fixture_for_step(doc)
         return str(self.fixtures.promote(doc,new_id,new_version,suitability,acknowledge,actor,doc["workflow_id"],doc["node_id"]))
-    def run_step(self,workflow_id,node_id,fixture_doc,profile_id,profile_overrides=None,tape=None,configuration_source="current",developer=False):
+    def run_step(self,workflow_id,node_id,fixture_doc,profile_id,profile_overrides=None,tape=None,configuration_source="current",developer=False,retry_overrides=None):
         if not developer: raise Fault("developer_disabled")
         snap=self.load(workflow_id); nodes={n["id"]:n for n in snap["workflow"]["nodes"]}
         if fixture_doc.get("workflow_id")!=workflow_id or fixture_doc.get("node_id")!=node_id: raise Fault("fixture_contract_invalid")
@@ -184,7 +209,7 @@ class Service:
                     return raw
                 return json.dumps(remap(parsed),ensure_ascii=False,separators=(",",":"))
             rows=tape["responses"]; one["recording"]={node_id:{f"{r['attempt']}:{r['call_index']}":remap_tape_content(r["content"]) for r in rows}}
-        rid=self.runner.create(one,resolved,profile,corpora,origins=fixture_origins); run=self.store.run(rid); run["isolated_step"]=True; run["configuration_source"]=configuration_source; run["fixture_identity"]={"id":fixture_doc["id"],"version":fixture_doc["version"]}; run["selected_tape"]={"id":tape["id"],"version":tape["version"]} if tape else None; self.store.put_run(run); return rid
+        one["execution_defaults"]=deepcopy(self.execution_defaults); rid=self.runner.create(one,resolved,profile,corpora,origins=fixture_origins,retry_overrides=retry_overrides); run=self.store.run(rid); run["isolated_step"]=True; run["configuration_source"]=configuration_source; run["fixture_identity"]={"id":fixture_doc["id"],"version":fixture_doc["version"]}; run["selected_tape"]={"id":tape["id"],"version":tape["version"]} if tape else None; self.store.put_run(run); return rid
     def verify_provider(self,profile_id,workflow_id,profile_overrides=None):
         profile=self.profiles.resolve(profile_id,profile_overrides or {},workflow_id=workflow_id,runnable=True)
         if profile["executor"] not in {"openrouter","lmstudio"}: raise Fault("verification_not_http")
@@ -194,11 +219,11 @@ class Service:
         prompt="Return only the requested structured protocol-verification response."; payload={"task":"synthetic protocol verification","expected":{"action":"submit","result":{"ok":True}}}
         try: provider=make_provider(profile,self.profiles.credential(profile))
         except Fault as exc:
-            results=[{"role":role,"success":False,"error":exc.code} for role in combinations.values()]
+            results=[{"role":role,"success":False,"error":present_error(exc)} for role in combinations.values()]
             return {"profile_id":profile_id,"destination":profile["destination"],"results":results,"success":False}
         for _,role in combinations.items():
             settings=profile["effective_roles"][role]; messages=self.model_steps.build_messages(prompt,payload,schema); req={"request_id":uuid.uuid4().hex,"role":role,"messages":messages,"timeout":settings.get("timeout_seconds",60),"output_schema":schema}
             try:
                 response=provider.complete(req,"verify",0); self.model_steps.parse_text(response["text"],schema); results.append({"role":role,"success":True,"elapsed":response.get("duration"),"returned_model":response.get("returned_model")})
-            except Fault as exc: results.append({"role":role,"success":False,"error":exc.code})
+            except Fault as exc: results.append({"role":role,"success":False,"error":present_error(exc)})
         return {"profile_id":profile_id,"destination":profile["destination"],"results":results,"success":all(x["success"] for x in results)}

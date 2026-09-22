@@ -16,12 +16,12 @@ def main(argv=None):
     p.add_argument('--provider',choices=['openrouter','lmstudio'],required=True)
     p.add_argument('--workflow',choices=['clinical_letter','guideline_qa','both'],default='both')
     p.add_argument('--profile'); p.add_argument('--model'); p.add_argument('--base-url')
-    p.add_argument('--data',default='.localmedbot-live-acceptance'); p.add_argument('--report',required=True)
+    p.add_argument('--data',default='state/live-acceptance'); p.add_argument('--runs-root',default='runs/live-acceptance'); p.add_argument('--report',required=True)
     a=p.parse_args(argv)
     report={'schema_version':1,'provider':a.provider,'requested_workflow':a.workflow,'started':time.time(),'cases':[],'status':'fail'}
     service=None
     try:
-        s=service=Service(ROOT/'applications',a.data,ROOT/'model_profiles',ROOT/'guideline_sets',ROOT/'tests/fixtures/steps')
+        s=service=Service(ROOT/'applications',a.data,ROOT/'model_profiles',ROOT/'guideline_sets',ROOT/'tests/fixtures/steps',runs_root=a.runs_root)
         workflows=['clinical_letter','guideline_qa'] if a.workflow=='both' else [a.workflow]
         for workflow in workflows:
             pid=a.profile if a.profile and a.workflow!='both' else f'{workflow}.{a.provider}.default'

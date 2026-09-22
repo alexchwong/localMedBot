@@ -84,7 +84,7 @@ class NamedRenderer(Renderer):
         result.payload["document_kind"] = config["document_kind"]
         return result
 
-service = Service(apps="applications", data=".localmedbot")
+service = Service(apps="applications", data="state", runs_root="runs")
 service.registry.register("named_renderer", NamedRenderer())
 ```
 

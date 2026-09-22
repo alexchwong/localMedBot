@@ -83,7 +83,7 @@ class MaintenanceTests(unittest.TestCase):
             '[tool.setuptools.package-data]\nlocalmedbot=["version.json"]\n\n'
             '[tool.setuptools.dynamic]\nversion = {attr = "localmedbot.__version__"}\n', encoding="utf-8"
         )
-        (root / "applications/a/application.yaml").write_text("id: a\nversion: 0.1.1\n", encoding="utf-8")
+        (root / "applications/a/application.yaml").write_text("id: a\n", encoding="utf-8")
         subprocess.run(["git", "init", "-q", str(root)], check=True)
         subprocess.run(["git", "-C", str(root), "config", "user.email", "test@example.invalid"], check=True)
         subprocess.run(["git", "-C", str(root), "config", "user.name", "Test"], check=True)
@@ -97,11 +97,11 @@ class MaintenanceTests(unittest.TestCase):
             app = root / "applications/a/application.yaml"
             app.write_text("id: a\nversion: 9.9.9\n", encoding="utf-8")
             subprocess.run(["git", "-C", str(root), "add", str(app.relative_to(root))], check=True)
-            app.write_text("id: a\nversion: 0.1.1\n", encoding="utf-8")
+            app.write_text("id: a\n", encoding="utf-8")
             self.assertEqual(common.check_working_source_state(root)["version"], "0.1.1")
             with self.assertRaises(common.ToolError) as ctx:
                 common.check_index_source_state(root)
-            self.assertEqual(ctx.exception.code, "version_mismatch")
+            self.assertEqual(ctx.exception.code, "version_wiring_invalid")
             self.assertIn("state=index", ctx.exception.detail)
 
     def test_working_inconsistency_not_hidden_by_index(self):
@@ -109,13 +109,13 @@ class MaintenanceTests(unittest.TestCase):
             root = Path(td)
             self._init_version_repo(root)
             app = root / "applications/a/application.yaml"
-            app.write_text("id: a\nversion: 0.1.1\n", encoding="utf-8")
+            app.write_text("id: a\n", encoding="utf-8")
             subprocess.run(["git", "-C", str(root), "add", str(app.relative_to(root))], check=True)
             app.write_text("id: a\nversion: 9.9.9\n", encoding="utf-8")
             self.assertEqual(common.check_index_source_state(root)["version"], "0.1.1")
             with self.assertRaises(common.ToolError) as ctx:
                 common.check_working_source_state(root)
-            self.assertEqual(ctx.exception.code, "version_mismatch")
+            self.assertEqual(ctx.exception.code, "version_wiring_invalid")
             self.assertIn("state=working", ctx.exception.detail)
 
     def test_version_loader_is_required_in_source_state(self):

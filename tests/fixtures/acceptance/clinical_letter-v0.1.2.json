@@ -1,0 +1,12 @@
+{
+  "fixture_schema_version": 1,
+  "id": "clinical_letter.v0.1.2.self_acceptance",
+  "version": 1,
+  "workflow_id": "clinical_letter",
+  "profile_id": "clinical_letter.self.default",
+  "input_mode": "free_text",
+  "input": {
+    "notes": "65M with SOB\nchest clear\nHb 91 WCC 3.2 Plt 47\nImp: MDS\nP: BMBx incl NGS\ns/a 6 weeks",
+    "purpose": "letter to GP"
+  }
+}

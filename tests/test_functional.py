@@ -49,13 +49,14 @@ class WorkflowRegressionTests(Base):
     def test_schema_and_reference_failures_do_not_release(self):
         rid,run=self.demo();self.assertEqual(run['status'],'waiting_review')
         # New run with deliberately schema-invalid controlled response fixture.
-        rid=self.s.start('clinical_letter','clinical_letter.recorded.default','demo',example='standard');r=self.s.store.run(rid)
+        rid=self.s.start('clinical_letter','clinical_letter.recorded.default','demo',example='standard',developer=True,retry_overrides={'output_repair_retries':0});r=self.s.store.run(rid)
         r['snapshot']['recording']['facts']=[{'wrong':True},{'wrong':True}];self.s.store.put_run(r)
         done=self.s.runner.advance(rid);self.assertEqual(done['status'],'blocked');self.assertEqual(done['block']['category'],'integrity');self.assertIsNone(done['approval'])
     def test_tool_scope_and_denial_are_preserved(self):
-        rid=self.s.start('guideline_qa','guideline_qa.recorded.default','demo',example='standard');r=self.s.store.run(rid)
+        rid=self.s.start('guideline_qa','guideline_qa.recorded.default','demo',example='standard',developer=True,retry_overrides={'output_repair_retries':0});r=self.s.store.run(rid)
         r['snapshot']['recording']['reason']=[{'action':'read','arguments':{'corpus_id':'outside','evidence_id':'x'}}];self.s.store.put_run(r)
-        done=self.s.runner.advance(rid);self.assertEqual(done['status'],'blocked');self.assertEqual(done['error']['code'],'scope_denied')
+        done=self.s.runner.advance(rid);self.assertEqual(done['status'],'blocked');self.assertEqual(done['error']['code'],'protocol_invalid')
+        self.assertEqual(self.s.store.tool_calls(rid),[])
     def test_budget_exhaustion_is_durable_non_revisable_block(self):
         rid=self.s.start('guideline_qa','guideline_qa.recorded.default','demo',example='standard');r=self.s.store.run(rid);r['snapshot']['policy']['limits']['turns']=1;self.s.store.put_run(r)
         done=self.s.runner.advance(rid);self.assertEqual(done['block']['category'],'budget');self.assertFalse(done['block']['human_revisable'])

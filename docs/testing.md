@@ -31,7 +31,7 @@ Live provider verification also remains separate from deterministic/package acce
 
 ```bash
 .env/bin/python scripts/verify_live_provider.py --provider lmstudio --workflow both \
-  --report .localmedbot-live-acceptance/report.json
+  --report state/live-acceptance/report.json
 ```
 
 A blocked credential or endpoint is reported as blocked, not converted into a recorded-model pass.

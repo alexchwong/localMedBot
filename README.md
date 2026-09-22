@@ -35,7 +35,7 @@ py -3 -m venv .env
 
 `localmedbot check` compiles the bundled applications and reports `{"status": "valid", ...}`; `localmedbot serve` starts the single-user application on <http://127.0.0.1:8765> (`--port` changes it).
 
-Asset and data locations default to the source-distribution layout and can be overridden per command: `--apps applications`, `--profiles model_profiles`, `--guidelines guideline_sets`, `--fixtures tests/fixtures/steps`, `--data .localmedbot`.
+Runtime locations are centralized and default relative to the launch directory: mutable shared state in `state/`, per-run immutable evidence in `runs/<run-id>/`, execution defaults in `config/`, reviewed fixtures in `tests/fixtures/`, and unreviewed scratch fixtures in `tests/fixtures/scratch/`. `--data` is retained as an alias for the shared state root; `--runs-root` and `--config-root` override the other runtime roots. An existing legacy `.localmedbot` is never silently ignored: run the explicit `localmedbot relocate` operation first.
 
 ## Model profiles
 
@@ -80,7 +80,7 @@ The supported distribution retains source-tree application, model-profile, guide
 
 ## Developer mode
 
-Developer mode exposes self handoffs, resolved contracts, development guideline selection/import, and a one-step tester with scratch/captured fixtures. See `docs/DEVEL.md`, `docs/self-execution.md`, `docs/fixtures.md`, `docs/versioning.md`, and `docs/upgrade-0.1.0.md`.
+The top-level Clinical / Developer workspace switch preserves the selected run and clinical input. Developer mode exposes run-wide output-repair and semantic-revision overrides, self handoffs, resolved contracts, development guideline selection/import, and a one-step tester with scratch/captured fixtures. See `docs/DEVEL.md`, `docs/self-execution.md`, `docs/fixtures.md`, `docs/versioning.md`, and `docs/upgrade-0.1.0.md`.
 
 Developer-only commands (`profiles import-legacy`, `guidelines import`/`promote`, `steps`, `fixtures`, `self`) require the `--developer` flag.
 
@@ -88,4 +88,4 @@ Developer-only commands (`profiles import-legacy`, `guidelines import`/`promote`
 
 This remains a single-user localhost evaluation prototype, not an authenticated clinical sign-off system. Source linkage and model checks do not establish clinical accuracy. SQLite/artifact storage is not encrypted. Provider warnings are advisory; the operator is responsible for not sending patient data outside the intended domain. Retrieval is bounded lexical search, not an exhaustive literature review.
 
-The current product is not releaseable. UI usability, end-to-end product acceptance and clinical validation remain unresolved. See `NEWS.md` and `docs/versioning.md` for lifecycle status.
+The current product is not releaseable. The workflow and UI are intended for evaluation, not clinical deployment; clinical validation and release authorization remain separate requirements. See `NEWS.md` and `docs/versioning.md` for lifecycle status.

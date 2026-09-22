@@ -1,32 +1,120 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="request-token" content="{{ token }}"><title>localMedBot 0.1.0</title><link rel="stylesheet" href="/static/app.css"><script src="/static/app.js" defer></script></head>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="request-token" content="{{ token }}">
+  <title>localMedBot {{ version }}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
 <body>
-<header><a class="brand" href="/">local<span>Med</span>Bot</a><span class="tag">0.1.0 · CLINICAL WORKFLOW PROTOTYPE</span><label class="toggle"><input id="developer" type="checkbox"> Developer mode</label></header>
-<main><div id="error" role="alert" hidden></div><div class="workspace">
-<aside>
-<section class="panel"><h2>Run workflow</h2>
-<label>Workflow<select id="workflow" data-testid="application"></select></label>
-<label>Model profile<select id="profile" data-testid="profile"></select></label>
-<div id="destination" class="destination" role="status"></div>
-<div id="provider-config"><label>Endpoint<input id="base-url"></label><label>Model<input id="model"></label><label>API key / local token<input id="credential" type="password" autocomplete="off"></label><div class="actions"><button id="save-profile" class="secondary">Save settings</button><button id="verify" class="secondary">Verify</button></div><pre id="verify-result"></pre></div>
-<label>Input mode<select id="input-mode"><option value="demo">Recorded demo</option><option value="free_text">Free text</option><option id="advanced-option" value="advanced" hidden>Advanced JSON</option></select></label>
-<div id="demo-fields"><label>Example<select id="example"></select></label></div><div id="copied-fields" hidden><p class="hint">Legacy input copied without inference. Select a fresh model profile and, for Guideline QA, a fresh guideline set/version.</p><pre id="copied-preview"></pre></div>
-<div id="letter-fields" hidden><label>Clinical notes<textarea id="notes" rows="12"></textarea></label><label>Communication purpose<textarea id="purpose" rows="3"></textarea></label></div>
-<div id="qa-fields" hidden><label>Guideline set<select id="guideline-set"></select></label><label>Version<select id="guideline-version"></select></label><label>Question<textarea id="question" rows="6"></textarea></label></div>
-<div id="advanced-fields" class="developer-only" hidden><label>Advanced workflow input · JSON<textarea id="advanced-input" rows="12" spellcheck="false">{}</textarea></label></div>
-<button id="start" data-testid="start">Run workflow</button></section>
-<section class="panel"><h2>Recent runs</h2><div id="runs"></div></section>
-<section id="guideline-dev" class="panel developer-only" hidden><h2>Development guideline import</h2><p class="hint">Updates only the selected set's development snapshot. Promotion remains CLI-only.</p><label>Source file<input id="guideline-file" type="file" accept=".json,.md,.txt"></label><button id="guideline-import" class="secondary">Import to devel</button><pre id="guideline-import-result"></pre></section>
-<section class="panel developer-only" hidden><h2>One-step tester</h2>
-<label>Step<select id="step"></select></label><label>Input source<select id="fixture-source"><option value="interactive">Interactive</option><option value="saved">Saved fixture</option><option value="prior">Current run attempt</option></select></label><label>Saved fixture<select id="fixture-existing"></select></label><label>Configuration<select id="configuration-source"><option value="current">Current workflow configuration</option><option value="captured">Captured configuration</option></select></label>
-<div class="actions"><button id="new-fixture" class="secondary">New schema-shaped fixture</button><button id="capture-step" class="secondary">Capture current run step</button></div>
-<label>Fixture ID<input id="fixture-id" value="scratch.step"></label><label>Fixture version<input id="fixture-version" type="number" value="1" min="1"></label><label>Fixture JSON<textarea id="fixture" rows="14" spellcheck="false"></textarea></label><label>Recorded tape JSON (recorded executor only)<textarea id="tape" rows="7" spellcheck="false"></textarea></label><div class="actions"><button id="save-fixture" class="secondary">Save scratch fixture</button><button id="delete-fixture" class="quiet">Delete scratch fixture</button><button id="run-step">Run selected step</button></div>
-<details><summary>Promote scratch fixture to repository</summary><label>New fixture ID<input id="promote-id"></label><label>New version<input id="promote-version" type="number" value="1" min="1"></label><label>Suitability<select id="fixture-suitability"><option value="synthetic">Synthetic</option><option value="deidentified">Deidentified</option><option value="authorised_for_repository">Authorised for repository</option></select></label><label>Actor<input id="promote-actor"></label><label><input id="promote-ack" type="checkbox" class="inline"> I reviewed the full fixture for version control</label><button id="promote-fixture" class="secondary">Promote fixture</button></details><p id="fixture-result" class="hint"></p></section>
-</aside>
-<section class="panel result"><div class="result-head"><div><p class="eyebrow">RUN WORKSPACE</p><h1 id="result-title">Ready</h1></div><span id="status" data-testid="status" class="status">Ready</span></div><div id="provenance"></div><div id="outcomes" class="hint"></div><div id="steps" class="steps"></div><article id="output" data-testid="output" class="output"></article><div id="citations"></div><details id="source-panel" hidden><summary>Source passage</summary><pre id="source-content"></pre></details>
-<div id="facts-panel"></div><div id="conflicts-panel"></div>
-<div id="review" hidden><h3>Human review</h3><label>Reviewer<input id="actor"></label><label>Revision target<select id="review-target"></select></label><label>Comments<textarea id="comments" rows="3"></textarea></label><div id="omissions"></div><div id="conflict-acks"></div><div class="actions"><button id="approve">Approve</button><button id="revise" class="secondary">Request revision</button><button id="reject" class="quiet">Reject</button></div></div>
-<div id="self-panel" class="developer-only" hidden><h3>Self handoff</h3><pre id="handoff"></pre><label>Raw model response<textarea id="self-response" rows="10"></textarea></label><button id="submit-self">Submit response</button></div>
-<div class="actions"><button id="resume" class="secondary" hidden>Resume</button><button id="copy-legacy" class="secondary" hidden>Use input in a new run</button><button id="delete-run" class="quiet" hidden>Delete run</button></div>
-<details><summary>Checks & artifacts</summary><pre id="artifacts"></pre></details><details><summary>Execution audit</summary><pre id="audit"></pre></details><details id="developer-trace-panel" class="developer-only" hidden><summary>Developer model/step trace</summary><pre id="developer-trace"></pre></details></section>
-</div></main><footer>Prototype only · source linkage and review do not establish clinical validity.</footer></body></html>
+<header class="topbar">
+  <a class="brand" href="/">local<span>Med</span>Bot</a>
+  <span class="tag">{{ version }} · CLINICAL WORKFLOW PROTOTYPE</span>
+  <nav class="workspace-switch" aria-label="Workspace">
+    <button id="clinical-workspace-tab" class="workspace-tab active" type="button">Clinical</button>
+    <label class="workspace-tab developer-tab"><input id="developer" type="checkbox"> Developer</label>
+  </nav>
+</header>
+<main>
+  <div id="error" class="error-banner" role="alert" hidden><button id="dismiss-error" type="button" aria-label="Dismiss error">×</button><div id="error-text"></div></div>
+  <div id="poll-status" class="connection" role="status" hidden></div>
+
+  <section id="clinical-workspace" class="workspace clinical-layout">
+    <section class="panel composer" aria-labelledby="compose-title">
+      <div class="panel-head"><div><p class="eyebrow">CLINICAL WORKSPACE</p><h1 id="compose-title">Create communication</h1></div></div>
+      <div class="compact-row">
+        <label>Workflow<select id="workflow" data-testid="application"></select></label>
+        <label>Provider / model<select id="profile" data-testid="profile"></select></label>
+      </div>
+      <div id="destination" class="destination" role="status"></div>
+      <details id="settings-disclosure" class="settings">
+        <summary>Model settings</summary>
+        <div id="provider-config" class="settings-grid">
+          <label>Endpoint<input id="base-url"></label>
+          <label>Model<input id="model"></label>
+          <label>Credential<input id="credential" type="password" autocomplete="off"></label>
+          <div class="actions"><button id="save-profile" class="secondary" type="button">Save settings</button><button id="verify" class="secondary" type="button">Verify</button></div>
+          <pre id="verify-result" class="compact-pre"></pre>
+        </div>
+      </details>
+      <label class="mode-label">Input mode<select id="input-mode"><option value="free_text">Free text</option><option value="demo">Recorded demonstration</option><option id="advanced-option" value="advanced" hidden>Advanced JSON</option></select></label>
+      <div id="demo-fields" hidden><label>Recorded example<select id="example"></select></label><p class="hint">A recorded demonstration is explicit and never substitutes for free-text execution.</p></div>
+      <div id="copied-fields" hidden><p class="hint">Copied historical input. Select current runtime configuration before starting.</p><pre id="copied-preview"></pre></div>
+      <div id="letter-fields" class="clinical-inputs">
+        <label>Clinical notes<textarea id="notes" rows="8" placeholder="Paste or type clinical notes"></textarea></label>
+        <label>Communication purpose<textarea id="purpose" rows="2" placeholder="e.g. letter to GP"></textarea></label>
+      </div>
+      <div id="qa-fields" hidden>
+        <div class="compact-row"><label>Guideline set<select id="guideline-set"></select></label><label>Version<select id="guideline-version"></select></label></div>
+        <label>Question<textarea id="question" rows="5"></textarea></label>
+      </div>
+      <div id="advanced-fields" hidden><label>Advanced workflow input · JSON<textarea id="advanced-input" rows="9" spellcheck="false">{}</textarea></label></div>
+      <button id="start" class="primary action-main" data-testid="start" type="button">Generate letter</button>
+    </section>
+
+    <section class="panel run-panel" aria-labelledby="run-title">
+      <div class="result-head">
+        <div><p class="eyebrow">CURRENT RUN</p><h1 id="result-title">Ready</h1></div>
+        <span id="status" data-testid="status" data-state="ready" class="status">Ready</span>
+      </div>
+      <div id="activity" class="activity" aria-live="polite">No run selected.</div>
+      <div id="provenance" class="meta-line"></div>
+      <div id="run-files" class="run-files"></div>
+      <div id="usage-summary" class="usage-grid"></div>
+      <div id="outcomes" class="hint"></div>
+      <div id="steps" class="steps" aria-label="Workflow stages"></div>
+      <article id="output" data-testid="output" class="output"></article>
+      <div id="citations" class="citations"></div>
+      <details id="source-panel" hidden><summary>Source passage</summary><pre id="source-content"></pre></details>
+      <div id="check-findings"></div>
+      <div id="facts-panel"></div>
+      <div id="conflicts-panel"></div>
+      <div id="review" class="review-card" hidden>
+        <h2>Final human review</h2>
+        <p class="hint">Approval applies only to the displayed current revision. Mandatory failed checks cannot be approved away.</p>
+        <div class="compact-row"><label>Reviewer<input id="actor"></label><label>Revision target<select id="review-target"></select></label></div>
+        <label>Comments<textarea id="comments" rows="2"></textarea></label>
+        <div id="omissions"></div><div id="conflict-acks"></div>
+        <div class="actions"><button id="approve" type="button">Approve displayed revision</button><button id="revise" class="secondary" type="button">Request revision</button><button id="reject" class="quiet" type="button">Reject</button></div>
+      </div>
+      <div id="self-panel" hidden><h2>Self handoff</h2><p class="hint">Supply only the model response. The runtime owns tools, validation and transitions.</p><pre id="handoff"></pre><label>Raw model response<textarea id="self-response" rows="8"></textarea></label><button id="submit-self" type="button">Submit response</button></div>
+      <div class="actions"><button id="resume" class="secondary" hidden type="button">Retry after correction</button><button id="copy-legacy" class="secondary" hidden type="button">Use input in a new run</button><button id="delete-run" class="quiet" hidden type="button">Delete run</button></div>
+      <details id="inspector" class="inspector"><summary>Run inspector</summary>
+        <div class="inspector-toolbar">
+          <label>Stage<select id="inspect-stage"></select></label><label>Attempt<select id="inspect-attempt"></select></label><label>Call / repair<select id="inspect-call"></select></label>
+        </div>
+        <div id="inspect-readable"></div>
+        <details><summary>Raw JSON</summary><pre id="audit"></pre></details>
+      </details>
+      <details><summary>Recent runs</summary><div id="runs" class="runs"></div></details>
+      <details><summary>Checks & current artifacts</summary><pre id="artifacts"></pre></details>
+    </section>
+  </section>
+
+  <section id="developer-workspace" class="workspace developer-layout" hidden>
+    <section class="panel dev-shell">
+      <div class="result-head"><div><p class="eyebrow">DEVELOPER WORKSPACE</p><h1>Workflow development</h1></div><span class="status">Developer access</span></div>
+        <details><summary>Run-wide retry overrides</summary><div class="compact-row"><label>Output-repair retries<input id="repair-override" type="number" min="0" placeholder="inherit"></label><label>Semantic-revision retries<input id="semantic-override" type="number" min="0" placeholder="inherit"></label></div><p class="hint">Blank inherits. Zero disables that retry class. Values are frozen into the run.</p></details>
+      <div class="dev-tabs" role="tablist"><button id="dev-tab-full" class="secondary active" type="button">Full workflow</button><button id="dev-tab-step" class="secondary" type="button">One-step tester</button><button id="dev-tab-guidelines" class="secondary" type="button">Guideline tools</button></div>
+      <section id="dev-full" class="dev-pane"><p>Full workflow execution uses the same clinical input and inspector so model calls, repairs, usage and review state remain comparable.</p><button id="back-clinical" type="button">Open full workflow</button></section>
+      <section id="dev-step" class="dev-pane" hidden>
+        <div class="tester-lead">
+          <label>Workflow<select id="step-workflow"></select></label><label>Stage<select id="step"></select></label><label>Model profile<select id="step-profile"></select></label><label>Input source<select id="fixture-source"><option value="interactive">Editable resolved input</option><option value="saved">Saved fixture</option><option value="prior">Current run attempt</option></select></label>
+        </div>
+        <div id="step-help" class="help-box" tabindex="0"></div>
+        <div class="compact-row"><label>Saved fixture<select id="fixture-existing"></select></label><label>Configuration<select id="configuration-source"><option value="current">Current workflow configuration</option><option value="captured">Captured configuration</option></select></label></div>
+        <div class="actions"><button id="new-fixture" class="secondary" type="button">New input</button><button id="capture-step" class="secondary" type="button">Capture selected run attempt</button></div>
+        <div class="compact-row"><label>Fixture ID<input id="fixture-id" value="scratch.step"></label><label>Fixture version<input id="fixture-version" type="number" value="1" min="1"></label></div>
+        <label>Resolved input / fixture<textarea id="fixture" rows="12" spellcheck="false"></textarea></label>
+        <details><summary>Advanced fixture and response tape</summary><label>Recorded tape JSON<textarea id="tape" rows="7" spellcheck="false"></textarea></label></details>
+        <div class="actions"><button id="run-step" type="button">Run selected step</button><button id="save-fixture" class="secondary" type="button">Save scratch fixture</button><button id="delete-fixture" class="quiet" type="button">Delete scratch fixture</button></div>
+        <details><summary>Promote reviewed fixture</summary><div class="compact-row"><label>New fixture ID<input id="promote-id"></label><label>New version<input id="promote-version" type="number" value="1" min="1"></label></div><label>Suitability<select id="fixture-suitability"><option value="synthetic">Synthetic</option><option value="deidentified">Deidentified</option><option value="authorised_for_repository">Authorised for repository</option></select></label><label>Actor<input id="promote-actor"></label><label class="check"><input id="promote-ack" type="checkbox"> I reviewed the full fixture for version control</label><button id="promote-fixture" class="secondary" type="button">Promote fixture</button></details><p id="fixture-result" class="hint"></p>
+      </section>
+      <section id="dev-guidelines" class="dev-pane" hidden><h2>Guideline development tools</h2><p class="hint">Development imports remain separate from promoted immutable releases.</p><label>Source file<input id="guideline-file" type="file" accept=".json,.md,.txt"></label><button id="guideline-import" class="secondary" type="button">Import to development snapshot</button><pre id="guideline-import-result"></pre></section>
+    </section>
+  </section>
+</main>
+<footer>Prototype only · source linkage and review do not establish clinical validity.</footer>
+</body></html>

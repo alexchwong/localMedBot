@@ -1,4 +1,4 @@
-"""Public contracts and stable faults for localMedBot 0.1.0."""
+"""Public contracts and stable faults for localMedBot."""
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any

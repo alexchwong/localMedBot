@@ -28,7 +28,19 @@ class RecordedProvider:
             value=rows[index]
         def resolve(v):
             if isinstance(v,dict) and set(v)=={"$input"}:
-                obj=json.loads(request["messages"][-1]["content"])
+                # Repair requests append failed output and feedback after the original
+                # task message. Recorded fixtures always resolve placeholders against
+                # that frozen original model input, not the repair envelope.
+                obj=None
+                for message in request.get("messages",[]):
+                    if message.get("role")!="user": continue
+                    try:
+                        candidate=json.loads(message.get("content", ""))
+                    except (TypeError,ValueError):
+                        continue
+                    if isinstance(candidate,(dict,list)):
+                        obj=candidate; break
+                if obj is None: raise Fault("recording_input_unavailable")
                 for part in v["$input"].split("."):
                     obj=obj[int(part)] if isinstance(obj,list) else obj[part]
                 return obj

@@ -15,6 +15,5 @@ docs/fixtures.md
 docs/self-execution.md
 docs/runtime.md
 docs/extending.md
-docs/upgrade-0.1.0.md
 scripts/**
 tests/**

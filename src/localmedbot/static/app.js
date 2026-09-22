@@ -1,173 +1,117 @@
 'use strict';
-const el=id=>document.getElementById(id);
-let token=document.querySelector('meta[name=request-token]').content;
-let apps=[],profiles=[],sets=[],fixtures=[],steps=[],rid=null,current=null,developer=false,poll=null,copyInputId=null;
+const $=id=>document.getElementById(id);
+let token=document.querySelector('meta[name="request-token"]').content;
+let apps=[],profiles=[],steps=[],fixtures=[],current=null,rid=null,developer=false,copyInputId=null,pollTimer=null;
+let selectionGeneration=0,newestRevision=new Map(),selectedInspector={stage:'',attempt:'',item:''},runEditState=new Map();
 
+function showError(err,persistent=true){
+  const data=err?.data?.error||err?.error||null;
+  const parts=[];
+  if(data){parts.push(data.explanation||data.detail||data.code||'Request failed');if(data.remedy)parts.push(data.remedy);if(data.diagnostic_reference)parts.push(`Diagnostic: ${data.diagnostic_reference}`)}
+  else parts.push(err?.message||String(err));
+  $('error-text').textContent=parts.filter(Boolean).join(' — ');$('error').hidden=false;$('error').dataset.persistent=persistent?'1':'0';
+}
+function clearError(force=false){if(force||$('error').dataset.persistent!=='1'){$('error').hidden=true;$('error-text').textContent=''}}
 async function api(path,data,method){
-  const opt={};
-  if(data!==undefined||method){
-    opt.method=method||'POST';
-    opt.headers={'Content-Type':'application/json','X-LocalMedBot-Token':token};
-    if(data!==undefined)opt.body=JSON.stringify(data);
-  }
-  const r=await fetch(path,opt); const v=await r.json();
-  if(!r.ok){const e=new Error(v.error?.code||'request_failed');e.payload=v;throw e}
-  return v;
+  const opts={method:method||(data===undefined?'GET':'POST'),headers:{}};
+  if(data!==undefined){opts.headers['Content-Type']='application/json';opts.headers['X-LocalMedBot-Token']=token;opts.body=JSON.stringify(data)}
+  if(opts.method==='DELETE')opts.headers['X-LocalMedBot-Token']=token;
+  const r=await fetch(path,opts);let out={};try{out=await r.json()}catch(_){out={}}
+  if(!r.ok){const e=new Error(out?.error?.code||`HTTP ${r.status}`);e.data=out;throw e}return out;
 }
-function errorMessage(e){return e.payload?.error?.detail?`${e.message}: ${e.payload.error.detail}`:e.message}
-function guard(fn){return async(...args)=>{el('error').hidden=true;try{await fn(...args)}catch(e){el('error').hidden=false;el('error').textContent=errorMessage(e)}}}
-function workflow(){return el('workflow').value}
-function selectedProfile(){return profiles.find(x=>x.id===el('profile').value)}
-function parseJson(id,empty=null){const text=el(id).value.trim();if(!text)return empty;return JSON.parse(text)}
-function setText(id,value){el(id).textContent=value==null?'':String(value)}
+const guard=fn=>async(...a)=>{try{clearError();await fn(...a)}catch(e){showError(e)}};
+const parseJson=(id,fallback)=>{const t=$(id).value.trim();if(!t)return fallback;try{return JSON.parse(t)}catch(_){throw new Error(`${id}: invalid JSON`)}};
+const workflow=()=> $('workflow').value;
+function retryOverrides(){const out={};for(const [id,key] of [['repair-override','output_repair_retries'],['semantic-override','semantic_revision_retries']]){const v=$(id)?.value;if(v!==undefined&&v!==''){const n=Number(v);if(!Number.isInteger(n)||n<0)throw new Error(`${key} must be a non-negative integer`);out[key]=n}}return out}
 
-async function loadProfiles(preserve=true){
-  const previous=preserve?el('profile').value:'';
+function switchWorkspace(which){$('clinical-workspace').hidden=which!=='clinical';$('developer-workspace').hidden=which!=='developer';$('clinical-workspace-tab').classList.toggle('active',which==='clinical');if(which==='developer'){showDevPane('step')}}
+function showDevPane(which){for(const n of ['full','step','guidelines']){$(`dev-${n}`).hidden=n!==which;$(`dev-tab-${n}`).classList.toggle('active',n===which)}}
+
+async function loadProfiles(){
   profiles=await api('/api/model-profiles?workflow_id='+encodeURIComponent(workflow()));
-  el('profile').replaceChildren(...profiles.map(x=>new Option(x.name,x.id)));
-  const desired=profiles.find(x=>x.id===previous)||profiles.find(x=>x.selected)||profiles.find(x=>x.executor==='recorded')||profiles[0];
-  if(desired)el('profile').value=desired.id;
-  showProfile();
+  const prev=$('profile').value;$('profile').replaceChildren(...profiles.map(p=>new Option(p.name,p.id)));if(profiles.some(p=>p.id===prev))$('profile').value=prev;else{const chosen=profiles.find(p=>p.selected)||profiles[0];if(chosen)$('profile').value=chosen.id}
+  $('step-profile').replaceChildren(...profiles.map(p=>new Option(p.name,p.id)));if($('profile').value)$('step-profile').value=$('profile').value;showProfile();
 }
-function showProfile(){
-  const p=selectedProfile(); if(!p){el('provider-config').hidden=true;setText('destination','Select a model profile.');return}
-  el('base-url').value=p.base_url||''; el('model').value=p.model||'';
-  const d=p.destination||{}; const nonLocal=['non_local','unknown'].includes(d.classification);
-  el('destination').className='destination '+(nonLocal?'non-local':'');
-  el('destination').textContent=nonLocal?`⚠ Non-local/unknown execution (${d.host||p.executor}): submitted text may leave your local domain. You are responsible for not sending patient data outside that domain.`:`Local/local-network execution: ${d.host||p.executor}. Local storage is not encrypted.`;
-  el('provider-config').hidden=['recorded','self'].includes(p.executor);
-  if(p.executor==='recorded')el('input-mode').value='demo'; else if(el('input-mode').value==='demo')el('input-mode').value='free_text';
-  showInputs();
-}
-async function saveProfile(){
-  const p=selectedProfile(); if(!p)throw new Error('profile_required');
-  const overlay={}; if(el('base-url').value.trim())overlay.base_url=el('base-url').value.trim(); if(el('model').value.trim())overlay.model=el('model').value.trim();
-  await api('/api/model-profiles/configure',{profile_id:p.id,overlay,credential:el('credential').value||undefined});
-  el('credential').value=''; await loadProfiles(false); el('profile').value=p.id; showProfile();
-}
-async function verify(){const p=selectedProfile();if(!p)throw new Error('profile_required');setText('verify-result',JSON.stringify(await api('/api/providers/verify',{profile_id:p.id,workflow_id:workflow()}),null,2))}
+function showProfile(){const p=profiles.find(x=>x.id===$('profile').value);if(!p)return;$('base-url').value=p.base_url||'';$('model').value=p.model||'';$('credential').value='';const d=p.destination||{};$('destination').textContent=`${p.executor} · ${p.model||'model not set'} · ${d.classification||'destination unknown'}${p.credential_present?' · credential present':''}`}
+async function saveProfile(){const p=profiles.find(x=>x.id===$('profile').value);if(!p)return;const overlay={};if($('base-url').value.trim())overlay.base_url=$('base-url').value.trim();if($('model').value.trim())overlay.model=$('model').value.trim();const body={profile_id:p.id,overlay};if($('credential').value)body.credential=$('credential').value;await api('/api/model-profiles/configure',body);await loadProfiles();$('verify-result').textContent='Settings saved.'}
+async function verifyProvider(){const r=await api('/api/providers/verify',{profile_id:$('profile').value,workflow_id:workflow(),profile_overrides:{base_url:$('base-url').value,model:$('model').value}});$('verify-result').textContent=r.success?'Verification succeeded.':JSON.stringify(r.results,null,2)}
 
-async function loadSets(){
-  sets=await api('/api/guideline-sets'); const prev=el('guideline-set').value;
-  el('guideline-set').replaceChildren(...sets.map(x=>new Option(x.name,x.id)));
-  if(sets.some(x=>x.id===prev))el('guideline-set').value=prev; showVersions();
-}
-function showVersions(){
-  const s=sets.find(x=>x.id===el('guideline-set').value); if(!s){el('guideline-version').replaceChildren();return}
-  const opts=[new Option(`Current default · ${s.default_release}`,'default'),...(s.releases||[]).map(x=>new Option(x,x))];
-  if(developer&&s.devel_available)opts.push(new Option('Development','devel'));
-  el('guideline-version').replaceChildren(...opts);
-}
-function showInputs(){
-  const mode=el('input-mode').value, wf=workflow();
-  el('demo-fields').hidden=mode!=='demo'; el('copied-fields').hidden=mode!=='copied';
-  el('letter-fields').hidden=mode!=='free_text'||wf!=='clinical_letter';
-  el('qa-fields').hidden=(mode!=='free_text'&&mode!=='copied')||wf!=='guideline_qa';
-  el('advanced-fields').hidden=!(developer&&mode==='advanced');
-}
 async function chooseWorkflow(){
-  const app=apps.find(x=>x.id===workflow());
-  el('example').replaceChildren(...(app?.examples||[]).map(x=>new Option(x,x)));
-  await loadProfiles(false); if(workflow()==='guideline_qa')await loadSets();
-  showInputs(); if(developer){await loadSteps();await loadFixtures()}
+  await loadProfiles();const app=apps.find(a=>a.id===workflow());$('example').replaceChildren(...(app?.examples||[]).map(x=>new Option(x,x)));await loadSets();await loadSteps();showInputs();
+  $('step-workflow').value=workflow();
 }
-async function start(){
-  const p=selectedProfile(); if(!p)throw new Error('profile_required');
-  const mode=el('input-mode').value; let input={}; let guideline_selection;
-  if(mode==='free_text'&&workflow()==='clinical_letter')input={notes:el('notes').value,purpose:el('purpose').value};
-  else if(mode==='free_text'&&workflow()==='guideline_qa')input={question:el('question').value};
-  else if(mode==='advanced')input=parseJson('advanced-input',{});
-  if((mode==='free_text'||mode==='advanced'||mode==='copied')&&workflow()==='guideline_qa')guideline_selection={set_id:el('guideline-set').value,selector:el('guideline-version').value};
-  const d={workflow_id:workflow(),profile_id:p.id,input_mode:mode,input,profile_overrides:{}};
-  if(guideline_selection)d.guideline_selection=guideline_selection;
-  if(mode==='demo')d.example=el('example').value;
-  if(mode==='copied')d.copy_input_id=copyInputId;
-  const r=await api('/api/runs',d); rid=r.id; copyInputId=null; await refresh();
+function showInputs(){const mode=$('input-mode').value,w=workflow();$('demo-fields').hidden=mode!=='demo';$('copied-fields').hidden=mode!=='copied';$('letter-fields').hidden=!(mode==='free_text'&&w==='clinical_letter');$('qa-fields').hidden=!(mode==='free_text'&&w==='guideline_qa');$('advanced-fields').hidden=mode!=='advanced';$('start').textContent=w==='clinical_letter'?'Generate letter':'Run workflow'}
+async function loadSets(){if(workflow()!=='guideline_qa')return;const sets=await api('/api/guideline-sets');const prev=$('guideline-set').value;$('guideline-set').replaceChildren(...sets.map(x=>new Option(x.name,x.id)));if(sets.some(x=>x.id===prev))$('guideline-set').value=prev;else if(sets[0])$('guideline-set').value=sets[0].id;showVersions(sets)}
+async function showVersions(rows){if(workflow()!=='guideline_qa')return;const sets=rows||await api('/api/guideline-sets');const row=sets.find(x=>x.id===$('guideline-set').value);const vals=[...(row?.releases||[])];if(developer&&!vals.includes('devel'))vals.push('devel');$('guideline-version').replaceChildren(...vals.map(v=>new Option(v,v)));if(row?.default_release)$('guideline-version').value=row.default_release}
+
+async function startRun(){
+  const mode=$('input-mode').value;let input={};if(mode==='free_text')input=workflow()==='clinical_letter'?{notes:$('notes').value,purpose:$('purpose').value}:{question:$('question').value};else if(mode==='advanced')input=parseJson('advanced-input',{});
+  const payload={workflow_id:workflow(),profile_id:$('profile').value,input_mode:mode,input,profile_overrides:{base_url:$('base-url').value,model:$('model').value}};
+  if(mode==='demo')payload.example=$('example').value;if(mode==='copied')payload.copy_input_id=copyInputId;if(workflow()==='guideline_qa')payload.guideline_selection={set_id:$('guideline-set').value,selector:$('guideline-version').value};if(developer){const o=retryOverrides();if(Object.keys(o).length)payload.retry_overrides=o}
+  const r=await api('/api/runs',payload);selectRun(r.id);await refresh(r.id,selectionGeneration);
+}
+async function listRuns(){const rows=await api('/api/runs');$('runs').replaceChildren(...rows.map(r=>{const b=document.createElement('button');b.type='button';b.className='run-row';b.innerHTML=`<span>${r.application||r.id}</span><span>${r.status}</span>`;b.onclick=()=>{selectRun(r.id);refresh(r.id,selectionGeneration).catch(showError)};return b}))}
+function selectRun(id){rid=id;selectionGeneration++;current=null;clearTimeout(pollTimer);newestRevision.set(id,newestRevision.get(id)??-1)}
+
+function statusLabel(run,data){if(run.status==='waiting_model')return 'Waiting for self response';if(run.status==='waiting_review')return 'Waiting for human review';if(run.status==='blocked')return 'Blocked';if(run.status==='failed')return 'Failed — action required';if(run.status==='completed')return 'Completed';if(run.status==='cancelled')return 'Cancelled';const repair=(data.repairs||[]).filter(x=>['pending','in_progress'].includes(x.outcome)).at(-1);if(repair)return `Retrying output · ${repair.repair_ordinal}/${repair.frozen_limit}`;return run.status==='running'?'Executing':'Queued'}
+function liveElapsed(data){let seconds=Number(data.run?.usage?.seconds||0);if(data.run?.status==='running'){const c=(data.physical_calls||[]).filter(x=>x.status==='dispatching'&&x.started_at).at(-1);if(c)seconds+=Math.max(0,Date.now()/1000-Number(c.started_at))}return seconds}
+function nextActor(run){if(run.status==='waiting_model')return 'self response';if(run.status==='waiting_review')return 'human review';if(run.status==='failed'||run.status==='blocked')return 'operator action';if(run.status==='completed'||run.status==='cancelled')return 'none';return 'runtime / model'}
+function updateActivity(data){const label=statusLabel(data.run,data);$('status').textContent=label;$('status').dataset.state=data.run.status;$('activity').textContent=`${label} · active ${liveElapsed(data).toFixed(1)}s · next: ${nextActor(data.run)}`}
+function renderUsage(u){const values=[['Operations',u.logical_operations],['HTTP calls',u.physical_calls],['Self handoffs',u.self_handoffs],['Output repairs',u.output_repairs],['Semantic revisions',u.semantic_revisions],['Transport retries',u.transport_retries]];const tok=u.usage?.totals?.total_tokens,cost=u.usage?.totals?.cost,currency=u.usage?.totals?.currency;values.push(['Tokens',tok==null?'Unavailable':`${tok}${u.usage?.partial?' (partial)':''}`]);if(cost!=null)values.push(['Reported cost',`${cost} ${currency||''}`.trim()]);$('usage-summary').replaceChildren(...values.map(([k,v])=>{const d=document.createElement('div');d.className='metric';d.innerHTML=`<strong>${v??0}</strong>${k}`;return d}))}
+function renderSteps(run,data){const retrying=new Set((data.repairs||[]).filter(x=>['pending','in_progress'].includes(x.outcome)).map(x=>x.node_id));$('steps').replaceChildren(...Object.entries(run.nodes||{}).map(([id,state])=>{const shown=retrying.has(id)?'retrying':state;const x=document.createElement('span');x.className='step-pill';x.dataset.state=shown;x.textContent=`${id}: ${shown.replace('_',' ')}`;return x}))}
+function renderOutput(data){const run=data.run,out=data.artifacts?.[run.snapshot?.workflow?.output];$('output').textContent=out?.payload?.text||'';$('citations').replaceChildren();for(const [i,c] of (out?.payload?.citations||[]).entries()){const b=document.createElement('button');b.type='button';b.dataset.testid='citation';b.setAttribute('data-testid','citation');b.textContent=`Source ${i+1}`;b.onclick=async()=>{try{const x=await api(`/api/runs/${encodeURIComponent(run.id)}/source/${encodeURIComponent(c.corpus_id)}/${encodeURIComponent(c.evidence_id)}`);$('source-content').textContent=x.text||JSON.stringify(x,null,2);$('source-panel').hidden=false;$('source-panel').open=true}catch(e){showError(e)}};$('citations').append(b)}}
+function renderFacts(data){const facts=data.artifacts?.facts,panel=$('facts-panel');panel.replaceChildren();if(!facts?.payload?.facts)return;const key=`${data.run.id}:${facts.revision}`,state=runEditState.get(key)||{open:false,facts:{}};runEditState.set(key,state);const s=document.createElement('div');s.className='facts-summary';s.textContent=`All ${facts.payload.facts.length} extracted facts are included by default.`;panel.append(s);const d=document.createElement('details');d.open=!!state.open;d.innerHTML='<summary>Optional omission editing</summary>';d.addEventListener('toggle',()=>{state.open=d.open});for(const f of facts.payload.facts){const saved=state.facts[f.id]||{omit:false,reason:''},row=document.createElement('div');row.className='omission-row';row.innerHTML=`<label class="check"><input type="checkbox" data-fact="${f.id}"> Omit ${f.id}: ${escapeHtml(f.text)}</label><input data-reason="${f.id}" placeholder="Reason required only if omitted">`;const cb=row.querySelector('[data-fact]'),reason=row.querySelector('[data-reason]');cb.checked=!!saved.omit;reason.value=saved.reason||'';cb.onchange=()=>{state.facts[f.id]={omit:cb.checked,reason:reason.value}};reason.oninput=()=>{state.facts[f.id]={omit:cb.checked,reason:reason.value}};d.append(row)}panel.append(d)}
+function renderChecks(data){const box=$('check-findings');box.replaceChildren();for(const [id,a] of Object.entries(data.artifacts||{})){if(!id.endsWith('_check')||a.payload?.status==='pass')continue;const c=document.createElement('div');c.className='inspect-card';c.innerHTML=`<h3>${id} failed mandatory checks</h3><p>Keeping all facts remains valid. The findings below require revision; they cannot be approved away.</p>`;for(const f of a.payload?.findings||[]){const x=document.createElement('div');x.className='finding';x.textContent=typeof f==='string'?f:(f.problem||f.message||JSON.stringify(f));c.append(x)}box.append(c)}}
+function renderConflicts(data){const out=data.artifacts?.[data.run.snapshot?.workflow?.output]?.payload;const panel=$('conflicts-panel');panel.replaceChildren();$('conflict-acks').replaceChildren();for(const id of out?.conflict_ids||[]){const row=document.createElement('label');row.className='conflict-row check';row.innerHTML=`<input type="checkbox" data-conflict="${id}"> Acknowledge unresolved conflict ${id}`;$('conflict-acks').append(row)}}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+function optionValue(type,id){return `${type}:${id}`}
+function populateInspector(data){
+  const stages=[...new Set((data.step_attempts||[]).map(x=>x.node_id))];const old=selectedInspector.stage;$('inspect-stage').replaceChildren(new Option('Run overview',''),...stages.map(x=>new Option(x,x)));$('inspect-stage').value=stages.includes(old)?old:(stages[0]||'');selectedInspector.stage=$('inspect-stage').value;populateAttempts(data);
+}
+function populateAttempts(data){const stage=$('inspect-stage').value;const rows=(data.step_attempts||[]).filter(x=>x.node_id===stage);const old=selectedInspector.attempt;$('inspect-attempt').replaceChildren(...rows.map(x=>new Option(`Attempt ${x.display_ordinal||x.attempt} · ${x.state}`,String(x.attempt))));$('inspect-attempt').value=rows.some(x=>String(x.attempt)===old)?old:(rows.at(-1)?String(rows.at(-1).attempt):'');selectedInspector.attempt=$('inspect-attempt').value;populateItems(data)}
+function populateItems(data){const st=$('inspect-stage').value,a=Number($('inspect-attempt').value);const calls=(data.model_calls||[]).filter(x=>x.node_id===st&&x.attempt===a);const repairs=(data.repairs||[]).filter(x=>x.node_id===st&&x.attempt===a);const semantic=(data.semantic_revisions||[]).filter(x=>(x.target_id===st&&[x.failed_target_attempt,x.next_target_attempt].includes(a))||(x.checker_id===st&&x.checker_attempt===a));const opts=[new Option('Stage attempt','attempt'),...calls.map(x=>new Option(`${x.purpose||'request'} · request ${x.call_index} · ${x.status}`,optionValue('call',x.request_id))),...repairs.map(x=>new Option(`repair ${x.repair_ordinal}/${x.frozen_limit} · ${x.audit_phase} · ${x.outcome}`,optionValue('repair',x.repair_id))),...semantic.map(x=>new Option(`semantic revision ${x.revision_ordinal}/${x.frozen_limit} · ${x.outcome}`,optionValue('semantic',x.link_id)))];const old=selectedInspector.item;$('inspect-call').replaceChildren(...opts);if([...$('inspect-call').options].some(x=>x.value===old))$('inspect-call').value=old;selectedInspector.item=$('inspect-call').value;renderInspector(data)}
+function readable(obj){const pre=document.createElement('pre');pre.textContent=typeof obj==='string'?obj:JSON.stringify(obj,null,2);return pre}
+function renderInspector(data){
+  const st=$('inspect-stage').value,a=Number($('inspect-attempt').value),choice=$('inspect-call').value,box=$('inspect-readable');box.replaceChildren();let raw={run:data.run,usage:data.usage};
+  if(choice==='attempt'){const at=(data.step_attempts||[]).find(x=>x.node_id===st&&x.attempt===a);if(!at){box.textContent='Selected attempt no longer exists; select another stage.';return}raw=at;const art=(data.artifact_history||[]).find(x=>x.id===st&&x.metadata?.attempt===a);const c=document.createElement('div');c.className='inspect-card';c.innerHTML=`<h3>${st} · attempt ${at.display_ordinal||a}</h3><p>Status: ${at.state}</p><strong>Resolved inputs</strong>`;c.append(readable(at.resolved_inputs));if(art){c.append(Object.assign(document.createElement('strong'),{textContent:`Resulting artifact · revision ${art.revision}`}));c.append(readable(art.payload));if(art.payload?.status)c.append(document.createTextNode(`Validation/check outcome: ${art.payload.status}`))}else c.append(document.createTextNode('No committed artifact for this attempt.'));box.append(c)}
+  else if(choice.startsWith('call:')){const id=choice.slice(5),call=(data.model_calls||[]).find(x=>x.request_id===id);if(!call){box.textContent='Selected call no longer exists; showing parent attempt.';$('inspect-call').value='attempt';selectedInspector.item='attempt';return renderInspector(data)}raw=call;const physical=(data.physical_calls||[]).filter(x=>x.request_id===id);const c=document.createElement('div');c.className='inspect-card';c.innerHTML=`<h3>${call.purpose} request ${call.call_index}</h3><p>Status: ${call.status} · model: ${call.response_metadata?.returned_model||call.effective_model?.model||'unreported'}</p><strong>Actual messages sent</strong>`;c.append(readable(call.messages));c.append(Object.assign(document.createElement('strong'),{textContent:'Requested output contract'}));c.append(readable(call.output_schema));c.append(Object.assign(document.createElement('strong'),{textContent:call.raw_response==null?'No response was received.':'Raw response'}));if(call.raw_response!=null)c.append(readable(call.raw_response));if(call.parsed!=null){c.append(Object.assign(document.createElement('strong'),{textContent:'Parsed result'}));c.append(readable(call.parsed))}if(call.response_metadata){c.append(Object.assign(document.createElement('strong'),{textContent:'Provider metadata / reported usage'}));c.append(readable(call.response_metadata))}if(call.error){c.append(Object.assign(document.createElement('strong'),{textContent:'Failure'}));c.append(readable(call.error))}if(physical.length){c.append(Object.assign(document.createElement('strong'),{textContent:'Physical dispatches / self opportunities'}));c.append(readable(physical))}for(const f of call.findings||[]){const x=document.createElement('div');x.className='finding';x.textContent=`${f.code||'finding'} ${f.instance_location||''}: ${f.problem||''} → ${f.required_correction||''}`;c.append(x)}box.append(c)}
+  else if(choice.startsWith('repair:')){const id=choice.slice(7),r=(data.repairs||[]).find(x=>x.repair_id===id);if(!r){$('inspect-call').value='attempt';return renderInspector(data)}raw=r;const c=document.createElement('div');c.className='inspect-card';c.innerHTML=`<h3>Output repair ${r.repair_ordinal}/${r.frozen_limit}</h3><p>${r.audit_phase} · ${r.outcome}</p><strong>Exact corrective feedback sent</strong>`;c.append(readable(r.rendered_feedback));for(const f of r.findings||[]){const x=document.createElement('div');x.className='finding';x.textContent=`${f.code}: ${f.problem} → ${f.required_correction}`;c.append(x)}box.append(c)}
+  else if(choice.startsWith('semantic:')){const id=choice.slice(9),r=(data.semantic_revisions||[]).find(x=>x.link_id===id);if(!r){$('inspect-call').value='attempt';return renderInspector(data)}raw=r;const c=document.createElement('div');c.className='inspect-card';c.innerHTML=`<h3>Semantic revision ${r.revision_ordinal}/${r.frozen_limit}</h3><p>${r.checker_id} → ${r.target_id} · ${r.outcome}</p><strong>Checker findings and exact generator feedback</strong>`;c.append(readable(r.findings));c.append(readable(r.rendered_feedback));box.append(c)}
+  $('audit').textContent=JSON.stringify(raw,null,2);
 }
 
-async function listRuns(){
-  const rows=await api('/api/runs'); el('runs').replaceChildren();
-  for(const row of rows){const b=document.createElement('button');b.className='run';b.textContent=`${row.application} · ${row.status}`;b.onclick=guard(async()=>{rid=row.id;await refresh()});el('runs').append(b)}
-}
-function renderFacts(data){
-  el('facts-panel').replaceChildren(); const facts=data.artifacts?.facts?.payload?.facts||[]; if(!facts.length)return;
-  const h=document.createElement('h3');h.textContent='Extracted facts';el('facts-panel').append(h);
-  for(const f of facts){const d=document.createElement('div');d.className='fact';const cb=document.createElement('input');cb.type='checkbox';cb.className='inline';cb.dataset.fact=f.id;cb.checked=(data.run.omission_policy?.omitted_fact_ids||[]).includes(f.id);const label=document.createElement('label');label.append(cb,document.createTextNode(` Omit ${f.id} from this communication`));const p=document.createElement('div');p.textContent=f.text;const reason=document.createElement('input');reason.placeholder='Reason required if omitted';reason.dataset.reason=f.id;reason.value=data.run.omission_policy?.reasons?.[f.id]||'';d.append(label,p,reason);el('facts-panel').append(d)}
-}
-function renderConflicts(out){
-  el('conflicts-panel').replaceChildren(); const ids=out?.payload?.conflict_ids||[];
-  for(const id of ids){const d=document.createElement('div');d.className='conflict';const cb=document.createElement('input');cb.type='checkbox';cb.className='inline';cb.dataset.conflict=id;const label=document.createElement('label');label.append(cb,document.createTextNode(` Acknowledge displayed conflict ${id}`));d.append(label);el('conflicts-panel').append(d)}
-}
-function renderTrace(data){
-  const trace={step_attempts:data.step_attempts||[],model_calls:data.model_calls||[],tool_calls:data.tool_calls||[]};
-  setText('developer-trace',JSON.stringify(trace,null,2));
-}
-async function refresh(){
-  if(!rid)return; const data=await api('/api/runs/'+rid); current=data; const r=data.run;
-  el('status').textContent=r.status;el('status').dataset.state=r.status;el('result-title').textContent=r.snapshot?.manifest?.name||'Legacy run';
-  setText('provenance',`Executor: ${r.profile?.executor||'legacy'} · Data origin: ${r.data_origin||'unknown'} · Run: ${r.id}`);
-  setText('outcomes',`Checks: ${JSON.stringify(r.check_outcomes||{})} · Evidence: ${r.evidence_outcome||'not applicable'} · Approval: ${r.approval?'approved':r.review_disposition||'not approved'}`);
-  el('steps').replaceChildren(); for(const n of r.snapshot?.workflow?.nodes||[]){const s=document.createElement('span');s.className='step';s.dataset.state=r.nodes?.[n.id];s.textContent=`${n.id} · ${r.nodes?.[n.id]}`;el('steps').append(s)}
-  const out=data.artifacts?.[r.snapshot?.workflow?.output]; el('output').textContent=out?.payload?.text||''; el('output').dataset.revision=out?.revision||'';
-  el('citations').replaceChildren(); for(const [i,c] of (out?.payload?.citations||[]).entries()){const b=document.createElement('button');b.className='citation';b.dataset.testid='citation';b.textContent=`[${i+1}] ${c.source} · ${c.locator}`;b.onclick=guard(async()=>{const src=await api(`/api/runs/${rid}/source/${c.corpus_id}/${encodeURIComponent(c.evidence_id)}`);setText('source-content',JSON.stringify(src,null,2));el('source-panel').hidden=false;el('source-panel').open=true});el('citations').append(b)}
-  renderFacts(data);renderConflicts(out);
-  const reviewable=['waiting_review','completed','rejected'].includes(r.status)||(r.status==='blocked'&&r.block?.human_revisable);el('review').hidden=!reviewable;
-  let targets=(r.status==='blocked'?r.block?.allowed_revision_targets:null)||(r.snapshot?.workflow?.revision_targets)||[r.snapshot?.workflow?.revision_target];targets=(targets||[]).filter(Boolean);el('review-target').replaceChildren(...targets.map(x=>new Option(x,x)));
-  el('approve').disabled=!['waiting_review','completed'].includes(r.status);el('reject').disabled=!['waiting_review','completed'].includes(r.status);
-  el('resume').hidden=!['pending','failed'].includes(r.status);el('delete-run').hidden=['running','waiting_model'].includes(r.status);el('copy-legacy').hidden=!r.legacy;
-  setText('artifacts',JSON.stringify(data.artifacts,null,2));setText('audit',JSON.stringify(data.events,null,2));
-  el('developer-trace-panel').hidden=!developer;if(developer)renderTrace(data);
-  el('self-panel').hidden=!(developer&&r.status==='waiting_model'&&data.handoff);if(!el('self-panel').hidden)setText('handoff',JSON.stringify(data.handoff,null,2));
-  clearTimeout(poll);if(['pending','running'].includes(r.status))poll=setTimeout(()=>refresh().catch(e=>{el('error').textContent=errorMessage(e);el('error').hidden=false}),500);await listRuns();
-}
-async function review(decision){
-  const r=current.run,out=current.artifacts?.[r.snapshot?.workflow?.output];
-  const payload={review_request_id:crypto.randomUUID(),revision:out?.revision??null,actor:el('actor').value,decision,comments:el('comments').value};
-  if(decision==='approve'){
-    payload.acknowledged_omission_ids=[...document.querySelectorAll('[data-fact]:checked')].map(x=>x.dataset.fact);
-    payload.acknowledged_conflict_ids=[...document.querySelectorAll('[data-conflict]:checked')].map(x=>x.dataset.conflict);
-  } else if(decision==='revise'){
-    payload.target=el('review-target').value;if(r.status==='blocked'){payload.expected_block={code:r.block.code,node_id:r.block.node_id,attempt:r.block.attempt};payload.revision=out?.revision??null}
-    if(r.snapshot?.manifest?.id==='clinical_letter'&&payload.target==='draft')payload.omissions=[...document.querySelectorAll('[data-fact]:checked')].map(x=>({fact_id:x.dataset.fact,reason:document.querySelector(`[data-reason="${x.dataset.fact}"]`).value,extraction_revision:r.active?.facts}));
-  }
-  await api(`/api/runs/${rid}/review`,payload);await refresh();
-}
+function renderReview(data){const r=data.run,out=data.artifacts?.[r.snapshot?.workflow?.output];$('review').hidden=!['waiting_review','completed','rejected','blocked'].includes(r.status);const targets=r.snapshot?.workflow?.revision_targets||[r.snapshot?.workflow?.revision_target].filter(Boolean);const prior=$('review-target').value;$('review-target').replaceChildren(...targets.map(x=>new Option(x,x)));if(targets.includes(prior))$('review-target').value=prior;$('approve').disabled=r.status!=='waiting_review';$('delete-run').hidden=['running','pending','waiting_model'].includes(r.status);$('resume').hidden=r.status!=='failed';$('copy-legacy').hidden=!r.legacy;$('self-panel').hidden=!(developer&&r.status==='waiting_model'&&data.handoff);if(!$('self-panel').hidden)$('handoff').textContent=JSON.stringify(data.handoff,null,2)}
 
-async function setDeveloper(){
-  const r=await api('/api/developer-mode',{enabled:el('developer').checked});developer=r.developer_enabled;
-  document.querySelectorAll('.developer-only').forEach(x=>{if(x.id!=='self-panel'&&x.id!=='advanced-fields')x.hidden=!developer});
-  el('advanced-option').hidden=!developer;if(!developer&&el('input-mode').value==='advanced')el('input-mode').value='free_text';
-  if(workflow()==='guideline_qa')await loadSets();if(developer){await loadSteps();await loadFixtures()}showInputs();if(rid)await refresh();
+function renderRunFiles(data){const box=$('run-files');box.replaceChildren();const path=data.paths?.run_folder;if(!path)return;const copy=document.createElement('button');copy.type='button';copy.className='quiet mini';copy.textContent='Copy run path';copy.onclick=async()=>{try{await navigator.clipboard.writeText(path);copy.textContent='Path copied'}catch(_){showError(new Error('Clipboard access is unavailable; copy the displayed run path manually.'),false)}};box.append(copy);for(const [label,rel,available] of [['Input','input.json',true],['Frozen config','run-config/resolved.json',true],['Current output','output.md',!!data.artifacts?.[data.run.snapshot?.workflow?.output]]]){if(!available)continue;const a=document.createElement('a');a.className='file-link';a.href=`/api/runs/${encodeURIComponent(data.run.id)}/download/${rel.split('/').map(encodeURIComponent).join('/')}`;a.textContent=`Download ${label}`;box.append(a)}}
+function render(data){
+  current=data;const r=data.run;$('result-title').textContent=r.snapshot?.manifest?.name||'Run';updateActivity(data);$('provenance').textContent=`Run ${r.id} · created ${new Date((r.created||0)*1000).toLocaleString()} · folder ${data.paths?.run_folder||''}`;renderRunFiles(data);renderUsage(data.usage||{});renderSteps(r,data);renderOutput(data);renderFacts(data);renderChecks(data);renderConflicts(data);renderReview(data);populateInspector(data);$('artifacts').textContent=JSON.stringify(data.artifacts||{},null,2);if(data.current_error)showError({error:data.current_error},true);else clearError(true)
 }
-async function loadSteps(){
-  if(!developer)return;steps=await api('/api/dev/workflows/'+workflow()+'/steps');const prev=el('step').value;el('step').replaceChildren(...steps.map(x=>new Option(x.id,x.id)));if(steps.some(x=>x.id===prev))el('step').value=prev;await loadFixtures();
-}
-async function loadFixtures(){
-  if(!developer)return;fixtures=await api('/api/dev/fixtures');const wf=workflow(),node=el('step').value;const matching=fixtures.filter(x=>x.workflow_id===wf&&(!node||x.node_id===node));
-  el('fixture-existing').replaceChildren(new Option('Select saved fixture',''),...matching.map(x=>new Option(`${x.id} v${x.version} · ${x.kind}`,`${x.id}|${x.version}`)));
-}
-function schemaTemplate(schema){
-  if(!schema||typeof schema!=='object')return null;if(schema.default!==undefined)return schema.default;
-  if(schema.const!==undefined)return schema.const;if(schema.enum?.length)return schema.enum[0];
-  if(schema.type==='object'||schema.properties){const o={};for(const k of schema.required||[])o[k]=schemaTemplate(schema.properties?.[k]||{});return o}
-  if(schema.type==='array')return [];if(schema.type==='string')return '';if(schema.type==='integer'||schema.type==='number')return schema.minimum??0;if(schema.type==='boolean')return false;return null;
-}
-function baseFixture(resolved){return {fixture_schema_version:1,id:el('fixture-id').value,version:Number(el('fixture-version').value),workflow_id:workflow(),node_id:el('step').value,step_contract_version:1,resolved_inputs:resolved,evidence_snapshots:[],context:{feedback:null,review_decisions:[]},provenance:{source_run_id:null,source_node_attempt:null},data_suitability:'synthetic',origins:{task_input:'synthetic',evidence:{},revision_feedback:{}}}}
-async function newFixture(){const s=steps.find(x=>x.id===el('step').value);if(!s)throw new Error('step_required');el('fixture').value=JSON.stringify(baseFixture(schemaTemplate(s.input_schema)||{}),null,2);el('fixture-source').value='interactive';setText('fixture-result','Created schema-shaped fixture. Complete required clinical fields before running.')}
-async function chooseSavedFixture(){const value=el('fixture-existing').value;if(!value)return;const [id,v]=value.split('|');const row=fixtures.find(x=>x.id===id&&String(x.version)===v);if(!row)throw new Error('fixture_not_found');el('fixture').value=JSON.stringify(row.document,null,2);el('fixture-id').value=row.id;el('fixture-version').value=row.version;el('fixture-source').value='saved'}
-async function captureStep(){if(!rid||!current)throw new Error('run_required');const node=el('step').value,attempt=current.run.attempts?.[node];if(!attempt)throw new Error('step_attempt_not_found');const doc=await api('/api/dev/fixtures/capture',{run_id:rid,node_id:node,attempt});doc.id=el('fixture-id').value;doc.version=Number(el('fixture-version').value);el('fixture').value=JSON.stringify(doc,null,2);el('fixture-source').value='prior';setText('fixture-result',`Captured ${node} attempt ${attempt} from ${rid}`)}
-async function saveFixture(){const doc=parseJson('fixture');doc.id=el('fixture-id').value;doc.version=Number(el('fixture-version').value);const r=await api('/api/dev/fixtures',{fixture:doc});el('fixture').value=JSON.stringify(doc,null,2);setText('fixture-result','Saved '+r.path);await loadFixtures()}
-async function deleteFixture(){const id=el('fixture-id').value,v=Number(el('fixture-version').value);await api(`/api/dev/fixtures/${encodeURIComponent(id)}?version=${v}`,undefined,'DELETE');setText('fixture-result',`Deleted scratch ${id} v${v}`);await loadFixtures()}
-async function promoteFixture(){const id=el('fixture-id').value,v=Number(el('fixture-version').value);const r=await api(`/api/dev/fixtures/${encodeURIComponent(id)}/promote`,{version:v,new_id:el('promote-id').value,new_version:Number(el('promote-version').value),suitability:el('fixture-suitability').value,acknowledge_reviewed:el('promote-ack').checked,actor:el('promote-actor').value});setText('fixture-result','Promoted '+r.path);await loadFixtures()}
-async function runStep(){const fixture=parseJson('fixture');const payload={workflow_id:workflow(),node_id:el('step').value,profile_id:el('profile').value,fixture,configuration_source:el('configuration-source').value};const tape=parseJson('tape',null);if(tape)payload.tape=tape;const r=await api('/api/dev/step-runs',payload);rid=r.id;await refresh()}
-async function submitSelf(){const h=current.handoff||JSON.parse(el('handoff').textContent);await api(`/api/dev/runs/${rid}/handoff`,{contract_version:h.contract_version,request_id:h.request_id,content:el('self-response').value});el('self-response').value='';await refresh()}
-async function importGuideline(){
-  if(workflow()!=='guideline_qa')throw new Error('guideline_workflow_required');const file=el('guideline-file').files[0];if(!file)throw new Error('source_file_required');if(file.size>1024*1024)throw new Error('file_too_large');const ext=file.name.split('.').pop().toLowerCase();if(!['json','md','txt'].includes(ext))throw new Error('source_format');const content=await file.text();const sources=ext==='json'?JSON.parse(content):[{id:'uploaded',title:file.name,format:ext==='md'?'markdown':'text',content}];const result=await api(`/api/dev/guideline-sets/${encodeURIComponent(el('guideline-set').value)}/import`,{sources,profile_id:el('profile').value});setText('guideline-import-result',JSON.stringify(result,null,2));await loadSets();if(result.run_id){rid=result.run_id;await refresh()}
-}
-async function copyLegacy(){const r=await api(`/api/runs/${rid}/copy-input`,{});copyInputId=r.copy_input_id;el('workflow').value=r.workflow_id;await chooseWorkflow();el('profile').prepend(new Option('Select fresh model profile',''));el('profile').value='';showProfile();if(r.workflow_id==='guideline_qa'){el('guideline-set').prepend(new Option('Select guideline set',''));el('guideline-set').value='';el('guideline-version').replaceChildren(new Option('Select guideline version',''))}if(![...el('input-mode').options].some(x=>x.value==='copied'))el('input-mode').append(new Option('Copied legacy input','copied'));el('input-mode').value='copied';setText('copied-preview',JSON.stringify(r.input,null,2));showInputs();window.scrollTo({top:0,behavior:'smooth'})}
+async function refresh(target=rid,generation=selectionGeneration){if(!target)return;try{const data=await api('/api/runs/'+encodeURIComponent(target));if(target!==rid||generation!==selectionGeneration||data.run_id!==rid)return;const rev=Number(data.inspection_revision||0),seen=newestRevision.get(target)??-1;if(rev<seen)return;if(rev>seen){newestRevision.set(target,rev);render(data)}else if(current&&current.run_id===target){updateActivity(data)}$('poll-status').hidden=true;await listRuns();clearTimeout(pollTimer);if(['pending','running','waiting_model','waiting_review'].includes(data.run.status))pollTimer=setTimeout(()=>refresh(target,generation),900)}catch(e){if(target!==rid||generation!==selectionGeneration)return;$('poll-status').hidden=false;$('poll-status').textContent=`Live refresh failed: ${e.data?.error?.explanation||e.message}. Displayed run state may be stale.`;clearTimeout(pollTimer);pollTimer=setTimeout(()=>refresh(target,generation),1800)}}
 
-el('workflow').onchange=guard(chooseWorkflow);el('profile').onchange=showProfile;el('input-mode').onchange=showInputs;el('guideline-set').onchange=showVersions;el('step').onchange=guard(loadFixtures);el('fixture-existing').onchange=guard(chooseSavedFixture);
-el('save-profile').onclick=guard(saveProfile);el('verify').onclick=guard(verify);el('start').onclick=guard(start);el('developer').onchange=guard(setDeveloper);el('new-fixture').onclick=guard(newFixture);el('run-step').onclick=guard(runStep);el('capture-step').onclick=guard(captureStep);el('save-fixture').onclick=guard(saveFixture);el('delete-fixture').onclick=guard(deleteFixture);el('promote-fixture').onclick=guard(promoteFixture);el('guideline-import').onclick=guard(importGuideline);el('submit-self').onclick=guard(submitSelf);el('copy-legacy').onclick=guard(copyLegacy);
-el('resume').onclick=guard(async()=>{await api(`/api/runs/${rid}/resume`,{});await refresh()});el('delete-run').onclick=guard(async()=>{await api(`/api/runs/${rid}`,undefined,'DELETE');rid=null;current=null;el('output').textContent='';await listRuns()});for(const d of ['approve','revise','reject'])el(d).onclick=guard(()=>review(d));
+async function review(decision){const r=current.run,out=current.artifacts?.[r.snapshot?.workflow?.output];const payload={review_request_id:crypto.randomUUID(),revision:out?.revision??null,actor:$('actor').value,decision,comments:$('comments').value};if(decision==='approve'){payload.acknowledged_omission_ids=[...document.querySelectorAll('[data-fact]:checked')].map(x=>x.dataset.fact);payload.acknowledged_conflict_ids=[...document.querySelectorAll('[data-conflict]:checked')].map(x=>x.dataset.conflict)}else if(decision==='revise'){payload.target=$('review-target').value;if(r.status==='blocked')payload.expected_block={code:r.block.code,node_id:r.block.node_id,attempt:r.block.attempt};if(r.snapshot?.manifest?.id==='clinical_letter'&&payload.target==='draft')payload.omissions=[...document.querySelectorAll('[data-fact]:checked')].map(x=>({fact_id:x.dataset.fact,reason:document.querySelector(`[data-reason="${x.dataset.fact}"]`).value,extraction_revision:r.active?.facts}))}await api(`/api/runs/${encodeURIComponent(rid)}/review`,payload);await refresh(rid,selectionGeneration)}
 
-(async()=>{const ss=await api('/api/session');token=ss.csrf;developer=ss.developer_enabled;el('developer').checked=developer;el('advanced-option').hidden=!developer;document.querySelectorAll('.developer-only').forEach(x=>{if(x.id!=='self-panel'&&x.id!=='advanced-fields')x.hidden=!developer});apps=await api('/api/applications');el('workflow').replaceChildren(...apps.map(x=>new Option(x.name,x.id)));await chooseWorkflow();await listRuns()})().catch(e=>{el('error').hidden=false;el('error').textContent=errorMessage(e)});
+async function setDeveloper(){const r=await api('/api/developer-mode',{enabled:$('developer').checked});developer=r.developer_enabled;$('advanced-option').hidden=!developer;if(!developer&&$('input-mode').value==='advanced')$('input-mode').value='free_text';if(developer){switchWorkspace('developer');await loadSteps();await loadFixtures()}else switchWorkspace('clinical');showInputs();if(rid)await refresh(rid,selectionGeneration)}
+async function loadSteps(){if(!developer)return;const w=$('step-workflow').value||workflow();steps=await api('/api/dev/workflows/'+encodeURIComponent(w)+'/steps');const prev=$('step').value;$('step').replaceChildren(...steps.map(x=>new Option(x.id,x.id)));if(steps.some(x=>x.id===prev))$('step').value=prev;else if(steps[0])$('step').value=steps[0].id;const profileRows=await api('/api/model-profiles?workflow_id='+encodeURIComponent(w));$('step-profile').replaceChildren(...profileRows.map(p=>new Option(p.name,p.id)));renderStepHelp();await loadFixtures()}
+function renderStepHelp(){const s=steps.find(x=>x.id===$('step').value);$('step-help').textContent=s?`${s.purpose} Required input and output contracts are validated before/after execution. Output schema: ${JSON.stringify(s.output_schema)}`:'Select a stage.'}
+async function loadFixtures(){if(!developer)return;fixtures=await api('/api/dev/fixtures');const wf=$('step-workflow').value||workflow(),node=$('step').value;const matching=fixtures.filter(x=>x.workflow_id===wf&&(!node||x.node_id===node));$('fixture-existing').replaceChildren(new Option('Select saved fixture',''),...matching.map(x=>new Option(`${x.id} v${x.version} · ${x.kind}`,`${x.id}|${x.version}`)))}
+function schemaTemplate(schema){if(!schema||typeof schema!=='object')return null;if(schema.default!==undefined)return schema.default;if(schema.const!==undefined)return schema.const;if(schema.enum?.length)return schema.enum[0];if(schema.type==='object'||schema.properties){const o={};for(const k of schema.required||[])o[k]=schemaTemplate(schema.properties?.[k]||{});return o}if(schema.type==='array')return [];if(schema.type==='string')return '';if(schema.type==='integer'||schema.type==='number')return schema.minimum??0;if(schema.type==='boolean')return false;return null}
+function baseFixture(resolved){return {fixture_schema_version:1,id:$('fixture-id').value,version:Number($('fixture-version').value),workflow_id:$('step-workflow').value||workflow(),node_id:$('step').value,step_contract_version:1,resolved_inputs:resolved,evidence_snapshots:[],context:{feedback:null,review_decisions:[]},provenance:{source_run_id:null,source_node_attempt:null},data_suitability:'synthetic',origins:{task_input:'synthetic',evidence:{},revision_feedback:{}}}}
+async function newFixture(){const s=steps.find(x=>x.id===$('step').value);if(!s)throw new Error('Select a stage first.');$('fixture').value=JSON.stringify(baseFixture(schemaTemplate(s.input_schema)||{}),null,2);$('fixture-source').value='interactive';$('fixture-result').textContent='Created schema-shaped input. Complete required fields before running.'}
+async function chooseSavedFixture(){const value=$('fixture-existing').value;if(!value)return;const [id,v]=value.split('|');const row=fixtures.find(x=>x.id===id&&String(x.version)===v);if(!row)throw new Error('fixture_not_found');$('fixture').value=JSON.stringify(row.document,null,2);$('fixture-id').value=row.id;$('fixture-version').value=row.version;$('fixture-source').value='saved'}
+async function captureStep(){if(!rid||!current)throw new Error('Select a run first.');const node=$('step').value,attempt=current.run.attempts?.[node];if(!attempt)throw new Error('No attempt for selected stage.');const doc=await api('/api/dev/fixtures/capture',{run_id:rid,node_id:node,attempt});doc.id=$('fixture-id').value;doc.version=Number($('fixture-version').value);$('fixture').value=JSON.stringify(doc,null,2);$('fixture-source').value='prior'}
+async function saveFixture(){const doc=parseJson('fixture');doc.id=$('fixture-id').value;doc.version=Number($('fixture-version').value);const r=await api('/api/dev/fixtures',{fixture:doc});$('fixture-result').textContent='Saved '+r.path;await loadFixtures()}
+async function deleteFixture(){const id=$('fixture-id').value,v=Number($('fixture-version').value);await api(`/api/dev/fixtures/${encodeURIComponent(id)}?version=${v}`,undefined,'DELETE');$('fixture-result').textContent=`Deleted scratch ${id} v${v}`;await loadFixtures()}
+async function promoteFixture(){const id=$('fixture-id').value,v=Number($('fixture-version').value);const r=await api(`/api/dev/fixtures/${encodeURIComponent(id)}/promote`,{version:v,new_id:$('promote-id').value,new_version:Number($('promote-version').value),suitability:$('fixture-suitability').value,acknowledge_reviewed:$('promote-ack').checked,actor:$('promote-actor').value});$('fixture-result').textContent='Promoted '+r.path;await loadFixtures()}
+async function runStep(){const fixture=parseJson('fixture');const payload={workflow_id:$('step-workflow').value||workflow(),node_id:$('step').value,profile_id:$('step-profile').value,fixture,configuration_source:$('configuration-source').value};const tape=parseJson('tape',null);if(tape)payload.tape=tape;const o=retryOverrides();if(Object.keys(o).length)payload.retry_overrides=o;const r=await api('/api/dev/step-runs',payload);selectRun(r.id);switchWorkspace('clinical');await refresh(r.id,selectionGeneration)}
+async function submitSelf(){const h=current.handoff||JSON.parse($('handoff').textContent);await api(`/api/dev/runs/${encodeURIComponent(rid)}/handoff`,{contract_version:h.contract_version,request_id:h.request_id,content:$('self-response').value});$('self-response').value='';await refresh(rid,selectionGeneration)}
+async function importGuideline(){const file=$('guideline-file').files[0];if(!file)throw new Error('Select a source file.');if(file.size>1024*1024)throw new Error('File too large.');const ext=file.name.split('.').pop().toLowerCase();if(!['json','md','txt'].includes(ext))throw new Error('Unsupported source format.');const content=await file.text();const sources=ext==='json'?JSON.parse(content):[{id:'uploaded',title:file.name,format:ext==='md'?'markdown':'text',content}];const set=$('guideline-set').value||'demo';const result=await api(`/api/dev/guideline-sets/${encodeURIComponent(set)}/import`,{sources,profile_id:$('profile').value});$('guideline-import-result').textContent=JSON.stringify(result,null,2);if(result.run_id){selectRun(result.run_id);switchWorkspace('clinical');await refresh(result.run_id,selectionGeneration)}}
+async function copyLegacy(){const r=await api(`/api/runs/${encodeURIComponent(rid)}/copy-input`,{});copyInputId=r.copy_input_id;$('workflow').value=r.workflow_id;await chooseWorkflow();if(![...$('input-mode').options].some(x=>x.value==='copied'))$('input-mode').append(new Option('Copied historical input','copied'));$('input-mode').value='copied';$('copied-preview').textContent=JSON.stringify(r.input,null,2);showInputs();window.scrollTo({top:0,behavior:'smooth'})}
+
+$('workflow').onchange=guard(chooseWorkflow);$('profile').onchange=showProfile;$('input-mode').onchange=showInputs;$('guideline-set').onchange=guard(()=>showVersions());$('step').onchange=guard(async()=>{renderStepHelp();await loadFixtures()});$('step-workflow').onchange=guard(loadSteps);$('fixture-existing').onchange=guard(chooseSavedFixture);
+$('save-profile').onclick=guard(saveProfile);$('verify').onclick=guard(verifyProvider);$('start').onclick=guard(startRun);$('developer').onchange=guard(setDeveloper);$('clinical-workspace-tab').onclick=()=>switchWorkspace('clinical');$('back-clinical').onclick=()=>switchWorkspace('clinical');for(const n of ['full','step','guidelines'])$(`dev-tab-${n}`).onclick=()=>showDevPane(n);
+$('new-fixture').onclick=guard(newFixture);$('run-step').onclick=guard(runStep);$('capture-step').onclick=guard(captureStep);$('save-fixture').onclick=guard(saveFixture);$('delete-fixture').onclick=guard(deleteFixture);$('promote-fixture').onclick=guard(promoteFixture);$('guideline-import').onclick=guard(importGuideline);$('submit-self').onclick=guard(submitSelf);$('copy-legacy').onclick=guard(copyLegacy);
+$('resume').onclick=guard(async()=>{await api(`/api/runs/${encodeURIComponent(rid)}/resume`,{});await refresh(rid,selectionGeneration)});$('delete-run').onclick=guard(async()=>{await api(`/api/runs/${encodeURIComponent(rid)}`,undefined,'DELETE');rid=null;current=null;$('output').textContent='';await listRuns()});for(const d of ['approve','revise','reject'])$(d).onclick=guard(()=>review(d));$('dismiss-error').onclick=()=>clearError(true);
+$('inspect-stage').onchange=()=>{selectedInspector.stage=$('inspect-stage').value;selectedInspector.attempt='';selectedInspector.item='';populateAttempts(current)};$('inspect-attempt').onchange=()=>{selectedInspector.attempt=$('inspect-attempt').value;selectedInspector.item='';populateItems(current)};$('inspect-call').onchange=()=>{selectedInspector.item=$('inspect-call').value;renderInspector(current)};
+
+(async()=>{const ss=await api('/api/session');token=ss.csrf;developer=ss.developer_enabled;$('developer').checked=developer;apps=await api('/api/applications');$('workflow').replaceChildren(...apps.map(x=>new Option(x.name,x.id)));$('step-workflow').replaceChildren(...apps.map(x=>new Option(x.name,x.id)));await chooseWorkflow();showInputs();await listRuns();switchWorkspace('clinical')})().catch(showError);

@@ -2,6 +2,6 @@
 from ._version import load_version_metadata
 
 __version__ = load_version_metadata()["version"]
-STORAGE_SCHEMA_VERSION = 1
+STORAGE_SCHEMA_VERSION = 2
 RUN_CONTRACT_VERSION = 1
 STEP_CONTRACT_VERSION = 1

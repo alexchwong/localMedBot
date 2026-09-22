@@ -5,14 +5,12 @@ nodes:
   input_schema: stage.input.schema.json
   inputs: {claims: artifacts.reason, candidates: artifacts.collected, task: run.input, conflict_registry: artifacts.reason.conflict_registry}
   config: {prompt: match.md, role: match, conflict_schema: conflict.schema.json}
-  repairs: 1
 - id: support.audit
   module: evidence_stage
   needs: [support.match]
   input_schema: stage.input.schema.json
   inputs: {claims: artifacts.reason, candidates: artifacts.collected, previous: artifacts.support.match, task: run.input, conflict_registry: artifacts.support.match.conflict_registry}
   config: {prompt: audit.md, role: audit, conflict_schema: conflict.schema.json}
-  repairs: 1
 - id: support.adjudicate
   module: evidence_stage
   needs: [support.audit]
@@ -20,7 +18,6 @@ nodes:
   inputs: {claims: artifacts.reason, candidates: artifacts.collected, previous: artifacts.support.audit, match: artifacts.support.match, task: run.input, conflict_registry: artifacts.support.audit.conflict_registry}
   when: {from: artifacts.support.audit.disputed, op: equals, value: true}
   config: {prompt: adjudicate.md, role: adjudication, conflict_schema: conflict.schema.json}
-  repairs: 1
 - id: support.final
   module: evidence_finalize
   needs: [support.adjudicate]

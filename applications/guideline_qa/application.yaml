@@ -1,6 +1,5 @@
 id: guideline_qa
 name: Guideline QA
-version: 0.1.1
 workflow: workflow.yaml
 policy: policy.yaml
 input_schema: input.schema.json

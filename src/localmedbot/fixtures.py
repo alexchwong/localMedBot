@@ -17,8 +17,8 @@ def validate_version(value):
     return value
 
 class FixtureManager:
-    def __init__(self,store,repo_root,data_root):
-        self.store=store; self.repo_root=Path(repo_root).resolve(); self.scratch=(Path(data_root).resolve()/"fixtures"/"scratch"); self.scratch.mkdir(parents=True,exist_ok=True)
+    def __init__(self,store,repo_root,scratch_root):
+        self.store=store; self.repo_root=Path(repo_root).resolve(); self.scratch=Path(scratch_root).resolve(); self.scratch.mkdir(parents=True,exist_ok=True)
     def filename(self,fixture_id,version): return f"fixture-{validate_fixture_id(fixture_id)}.v{validate_version(version)}.json"
     def validate_envelope(self,doc):
         allowed={"fixture_schema_version","id","version","workflow_id","node_id","step_contract_version","resolved_inputs","evidence_snapshots","context","provenance","data_suitability","origins","captured_configuration"}

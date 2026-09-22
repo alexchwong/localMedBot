@@ -1,6 +1,5 @@
 id: clinical_letter
 name: Clinical letter
-version: 0.1.1
 workflow: workflow.yaml
 policy: policy.yaml
 input_schema: input.schema.json

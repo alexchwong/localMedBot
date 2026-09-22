@@ -5,6 +5,9 @@ from . import __version__
 from .contracts import Fault
 from .service import Service
 from .profiles import classify_destination
+from .errors import present_error
+from .paths import RuntimePaths
+from .relocation import relocate_legacy
 
 
 def _json_file(path): return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -35,22 +38,29 @@ def _import_legacy_profile(service,workflow,path):
     service.configure_profile(pid,overlay)
     return {"profile_id":pid,"overlay":overlay}
 def main(argv=None):
-    p=argparse.ArgumentParser(prog="localmedbot"); p.add_argument("--apps",default="applications"); p.add_argument("--data",default=".localmedbot"); p.add_argument("--profiles",default="model_profiles"); p.add_argument("--guidelines",default="guideline_sets"); p.add_argument("--fixtures",default="tests/fixtures/steps"); p.add_argument("--developer",action="store_true")
+    p=argparse.ArgumentParser(prog="localmedbot"); p.add_argument("--apps",default="applications"); p.add_argument("--data",default=None,help="shared state root (legacy alias retained; default: ./state)"); p.add_argument("--runs-root",default=None,help="per-run storage root (default: ./runs)"); p.add_argument("--config-root",default=None,help="execution config root (default: ./config)"); p.add_argument("--profiles",default="model_profiles"); p.add_argument("--guidelines",default="guideline_sets"); p.add_argument("--fixtures",default="tests/fixtures/steps"); p.add_argument("--developer",action="store_true")
     sub=p.add_subparsers(dest="command",required=True); sub.add_parser("apps"); sub.add_parser("check")
     pp=sub.add_parser("profiles"); pps=pp.add_subparsers(dest="profiles_command",required=True); q=pps.add_parser("list"); q.add_argument("--workflow"); q=pps.add_parser("import-legacy"); q.add_argument("--workflow",required=True); q.add_argument("--file",required=True)
     pv=sub.add_parser("providers"); pvs=pv.add_subparsers(dest="providers_command",required=True); q=pvs.add_parser("verify"); q.add_argument("--profile",required=True); q.add_argument("--workflow",required=True)
-    r=sub.add_parser("run"); r.add_argument("workflow"); r.add_argument("--profile",required=True); r.add_argument("--example"); r.add_argument("--input"); r.add_argument("--input-mode",choices=["demo","free_text","advanced"],default="advanced"); r.add_argument("--guideline-set",default="demo"); r.add_argument("--guideline-version",default="default")
+    r=sub.add_parser("run"); r.add_argument("workflow"); r.add_argument("--profile",required=True); r.add_argument("--example"); r.add_argument("--input"); r.add_argument("--input-mode",choices=["demo","free_text","advanced"],default="advanced"); r.add_argument("--guideline-set",default="demo"); r.add_argument("--guideline-version",default="default"); r.add_argument("--output-repair-retries",type=int); r.add_argument("--semantic-revision-retries",type=int)
     for cmd in ["status","resume","cancel","delete"]: q=sub.add_parser(cmd); q.add_argument("run_id")
     rv=sub.add_parser("review"); rv.add_argument("run_id"); rv.add_argument("--revision",type=int); rv.add_argument("--actor",required=True); rv.add_argument("--decision",choices=["approve","reject","revise"],required=True); rv.add_argument("--comments",default=""); rv.add_argument("--target"); rv.add_argument("--review-request-id"); rv.add_argument("--ack-omission",action="append",default=[]); rv.add_argument("--ack-conflict",action="append",default=[])
     gl=sub.add_parser("guidelines"); gls=gl.add_subparsers(dest="guidelines_command",required=True); gls.add_parser("list"); qi=gls.add_parser("import"); qi.add_argument("set_id"); qi.add_argument("--sources",required=True); qi.add_argument("--profile"); qi.add_argument("--ingestion-profile"); qp=gls.add_parser("promote"); qp.add_argument("set_id"); qp.add_argument("--expected-snapshot",required=True); qp.add_argument("--note",required=True); qp.add_argument("--actor",required=True)
-    st=sub.add_parser("steps"); sts=st.add_subparsers(dest="steps_command",required=True); q=sts.add_parser("list"); q.add_argument("workflow"); q=sts.add_parser("run"); q.add_argument("workflow"); q.add_argument("node"); q.add_argument("--fixture",required=True); q.add_argument("--profile",required=True); q.add_argument("--tape")
+    st=sub.add_parser("steps"); sts=st.add_subparsers(dest="steps_command",required=True); q=sts.add_parser("list"); q.add_argument("workflow"); q=sts.add_parser("run"); q.add_argument("workflow"); q.add_argument("node"); q.add_argument("--fixture",required=True); q.add_argument("--profile",required=True); q.add_argument("--tape"); q.add_argument("--output-repair-retries",type=int); q.add_argument("--semantic-revision-retries",type=int)
     fx=sub.add_parser("fixtures"); fxs=fx.add_subparsers(dest="fixtures_command",required=True); q=fxs.add_parser("capture"); q.add_argument("run_id"); q.add_argument("--node",required=True); q.add_argument("--attempt",type=int,required=True); q.add_argument("--output",required=True); q=fxs.add_parser("promote"); q.add_argument("file"); q.add_argument("--id",required=True); q.add_argument("--version",type=int,required=True); q.add_argument("--suitability",required=True); q.add_argument("--acknowledge-reviewed",action="store_true"); q.add_argument("--actor",required=True)
     sf=sub.add_parser("self"); sfs=sf.add_subparsers(dest="self_command",required=True); q=sfs.add_parser("export"); q.add_argument("run_id"); q.add_argument("--output",required=True); q=sfs.add_parser("submit"); q.add_argument("run_id"); q.add_argument("--response",required=True)
+    rl=sub.add_parser("relocate"); rl.add_argument("--source",default=".localmedbot")
     sv=sub.add_parser("serve"); sv.add_argument("--port",type=int,default=8765)
     a=p.parse_args(argv); service=None
     try:
+        if a.command=="relocate":
+            launch=Path(a.apps).resolve().parent; paths=RuntimePaths.resolve(launch_root=launch,state_root=a.data,runs_root=a.runs_root,config_root=a.config_root,fixtures_root=Path(a.fixtures).resolve().parent)
+            result=relocate_legacy(a.source,paths.state_root,paths.runs_root,paths.scratch_root)
+            print(json.dumps(result,ensure_ascii=False,indent=2)); return 0
         read_only = a.command in {"apps","status","check"} or (a.command=="profiles" and a.profiles_command=="list") or (a.command=="guidelines" and a.guidelines_command=="list")
-        service=Service(a.apps,a.data,a.profiles,a.guidelines,a.fixtures,writer=not read_only)
+        launch=Path(a.apps).resolve().parent
+        resolved_paths=RuntimePaths.resolve(launch_root=launch,state_root=a.data,runs_root=a.runs_root,config_root=a.config_root,fixtures_root=Path(a.fixtures).resolve().parent)
+        service=Service(a.apps,resolved_paths.state_root,a.profiles,a.guidelines,a.fixtures,writer=not read_only,runs_root=resolved_paths.runs_root,config_root=resolved_paths.config_root,launch_root=launch)
         if a.command=="apps": result=service.applications()
         elif a.command=="check":
             for app in service.applications(): service.load(app["id"])
@@ -64,7 +74,7 @@ def main(argv=None):
         elif a.command=="run":
             data=_json_file(a.input) if a.input else {}
             mode="demo" if a.example else a.input_mode
-            rid=service.start(a.workflow,a.profile,mode,data,guideline_selection={"set_id":a.guideline_set,"selector":a.guideline_version},example=a.example,developer=a.developer); result=service.runner.advance(rid)
+            overrides={k:v for k,v in {"output_repair_retries":a.output_repair_retries,"semantic_revision_retries":a.semantic_revision_retries}.items() if v is not None}; rid=service.start(a.workflow,a.profile,mode,data,guideline_selection={"set_id":a.guideline_set,"selector":a.guideline_version},example=a.example,developer=a.developer,retry_overrides=overrides); result=service.runner.advance(rid)
         elif a.command=="status": result=service.inspect(a.run_id,developer=a.developer)
         elif a.command=="resume": result=service.resume(a.run_id)
         elif a.command=="cancel": service.runner.cancel(a.run_id); result=service.store.run(a.run_id)
@@ -89,7 +99,7 @@ def main(argv=None):
             if a.steps_command=="list": result=service.steps(a.workflow)
             else:
                 fixture=service.fixtures.load(a.fixture); tape=service.fixtures.load_tape(a.tape,fixture) if a.tape else None
-                rid=service.run_step(a.workflow,a.node,fixture,a.profile,tape=tape,developer=True); result=service.runner.advance(rid)
+                overrides={k:v for k,v in {"output_repair_retries":a.output_repair_retries,"semantic_revision_retries":a.semantic_revision_retries}.items() if v is not None}; rid=service.run_step(a.workflow,a.node,fixture,a.profile,tape=tape,developer=True,retry_overrides=overrides); result=service.runner.advance(rid)
         elif a.command=="fixtures":
             if not a.developer: raise Fault("developer_disabled")
             if a.fixtures_command=="capture":
@@ -107,7 +117,7 @@ def main(argv=None):
             create_app(service).run(host="127.0.0.1",port=a.port,debug=False,threaded=True); return 0
         print(json.dumps(result,ensure_ascii=False,indent=2)); return 1 if isinstance(result,dict) and result.get("status") in {"failed","blocked"} else 0
     except (Fault,OSError,ValueError,KeyError) as exc:
-        print(json.dumps({"error":{"code":getattr(exc,"code","invalid_input"),"detail":getattr(exc,"detail","")}},ensure_ascii=False),file=sys.stderr); return 1
+        print(json.dumps({"error":present_error(exc)},ensure_ascii=False),file=sys.stderr); return 1
     finally:
         if service is not None and a.command!="serve": service.close()
 if __name__=="__main__": raise SystemExit(main())

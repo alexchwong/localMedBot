@@ -47,10 +47,10 @@ For browser verification see `docs/testing.md`. For fixtures and self execution 
 For a new product version:
 
 1. Change only the product authority in `src/localmedbot/version.json`, initially with `"releaseable": false`.
-2. Update the bundled `applications/*/application.yaml` validated version copies.
+2. Do not add product-version literals to bundled application manifests; application snapshots receive the current product version when loaded/compiled.
 3. Reinstall the editable package so distribution metadata reflects the new authority.
 4. Add the durable change entry to `NEWS.md`.
-5. Run maintenance, deterministic tests, preview build, exact verification and smoke verification.
+5. Run maintenance, deterministic tests, browser verification, preview build, exact verification and smoke verification.
 6. If and only if the product is actually eligible, make a separate reviewed change setting `releaseable` to `true`; no tool grants this permission automatically.
 
 Persisted schema/contract versions and guideline release IDs are independent; see `docs/versioning.md`.

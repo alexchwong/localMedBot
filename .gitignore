@@ -17,3 +17,6 @@ playwright-report/
 .pytest_cache/
 .coverage
 htmlcov/
+state/
+runs/
+tests/fixtures/scratch/

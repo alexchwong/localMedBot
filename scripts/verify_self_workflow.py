@@ -14,10 +14,10 @@ def write(path,value):
     else: print(json.dumps(value,ensure_ascii=False,indent=2))
 
 def main(argv=None):
-    p=argparse.ArgumentParser(); p.add_argument('--data',default='.localmedbot-self-acceptance'); p.add_argument('--workflow',choices=['clinical_letter','guideline_qa']); p.add_argument('--action',choices=['start','export','submit','status'],required=True); p.add_argument('--run-id'); p.add_argument('--response'); p.add_argument('--output'); a=p.parse_args(argv)
+    p=argparse.ArgumentParser(); p.add_argument('--data',default='state/self-acceptance'); p.add_argument('--runs-root',default='runs/self-acceptance'); p.add_argument('--workflow',choices=['clinical_letter','guideline_qa']); p.add_argument('--action',choices=['start','export','submit','status'],required=True); p.add_argument('--run-id'); p.add_argument('--response'); p.add_argument('--output'); a=p.parse_args(argv)
     s=None
     try:
-        s=Service(ROOT/'applications',a.data,ROOT/'model_profiles',ROOT/'guideline_sets',ROOT/'tests/fixtures/steps')
+        s=Service(ROOT/'applications',a.data,ROOT/'model_profiles',ROOT/'guideline_sets',ROOT/'tests/fixtures/steps',runs_root=a.runs_root)
         if a.action=='start':
             if not a.workflow: raise Fault('workflow_required')
             pid=f'{a.workflow}.self.default'

@@ -35,7 +35,7 @@ class ReleaseTests(unittest.TestCase):
             '[tool.setuptools.package-data]\nlocalmedbot=["version.json"]\n\n'
             '[tool.setuptools.dynamic]\nversion = {attr = "localmedbot.__version__"}\n', encoding="utf-8"
         )
-        (root / "applications/a/application.yaml").write_text("id: a\nversion: 0.1.1\n", encoding="utf-8")
+        (root / "applications/a/application.yaml").write_text("id: a\n", encoding="utf-8")
         (root / "release-manifest.txt").write_text(
             "release-manifest.txt\npyproject.toml\nsrc/localmedbot/**\napplications/**\npayload/**\n", encoding="utf-8"
         )

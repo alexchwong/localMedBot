@@ -54,7 +54,7 @@ class Base(unittest.TestCase):
 class VersionAndProfileTests(Base):
     def test_persisted_contract_versions(self):
         # The product version is not a test constant; see docs/versioning.md.
-        self.assertEqual((STORAGE_SCHEMA_VERSION,RUN_CONTRACT_VERSION,STEP_CONTRACT_VERSION),(1,1,1))
+        self.assertEqual((STORAGE_SCHEMA_VERSION,RUN_CONTRACT_VERSION,STEP_CONTRACT_VERSION),(2,1,1))
         self.assertEqual(self.s.load('clinical_letter')['workflow']['version'],2)
         self.assertEqual(self.s.load('guideline_qa')['workflow']['version'],2)
     def test_profiles_exist_and_filter(self):
@@ -161,7 +161,7 @@ class ProviderTests(Base):
     def test_http_auth_rejected_no_fallback(self):
         with endpoint([401]) as (url,_):
             pid='clinical_letter.openrouter.default'; self.s.configure_profile(pid,{'base_url':url,'model':'fixture-model'},credential='fixture-token')
-            result=self.s.verify_provider(pid,'clinical_letter'); self.assertFalse(result['success']); self.assertEqual(result['results'][0]['error'],'authentication_rejected')
+            result=self.s.verify_provider(pid,'clinical_letter'); self.assertFalse(result['success']); self.assertEqual(result['results'][0]['error']['code'],'authentication_rejected')
 
 class GuidelineLifecycleTests(unittest.TestCase):
     def test_devel_is_frozen_and_promotion_independent(self):
@@ -186,7 +186,7 @@ class FixtureTests(Base):
             fault(self,'fixture_id_invalid',validate_fixture_id,bad)
     def test_capture_and_isolated_step(self):
         rid,r=self.demo('clinical_letter','standard'); attempt=r['attempts']['draft']; doc=self.s.capture_fixture(rid,'draft',attempt)
-        doc['id']='clinical_letter.draft.captured'; doc['version']=1; doc['data_suitability']='synthetic'
+        doc['id']=f'clinical_letter.draft.captured.{uuid.uuid4().hex[:8]}'; doc['version']=1; doc['data_suitability']='synthetic'
         # pair a tape with exactly this fixture and run just draft
         draft_value={'title':'Fixture letter','claims':[{'id':f['id'],'text':f['text'],'evidence_refs':f['evidence_refs']} for f in doc['resolved_inputs']['source']['facts']]}
         self.s.save_scratch_fixture(doc)
@@ -217,13 +217,13 @@ if __name__=='__main__': unittest.main()
 class ClarificationContractTests(Base):
     def test_block_taxonomy_semantic_integrity_budget(self):
         # semantic exhaustion is human-revisable
-        rid=self.s.start('clinical_letter','clinical_letter.recorded.default','demo',example='standard'); run=self.s.store.run(rid)
-        run['snapshot']['recording']['draft_check']=[{'status':'fail','findings':[{'code':'omitted_fact','severity':'error'}]}]*2
+        rid=self.s.start('clinical_letter','clinical_letter.recorded.default','demo',example='standard',developer=True,retry_overrides={'semantic_revision_retries':0}); run=self.s.store.run(rid)
+        run['snapshot']['recording']['draft_check']=[{'status':'fail','findings':[{'code':'omitted_fact','severity':'error'}]}]
         self.s.store.put_run(run); done=self.s.runner.advance(rid)
         self.assertEqual(done['status'],'blocked'); self.assertEqual(done['block']['category'],'content_revisable'); self.assertTrue(done['block']['human_revisable']); self.assertIn('draft',done['block']['allowed_revision_targets'])
         # invalid evidence relationships are integrity blocks, never human-overridable
-        rid=self.s.start('clinical_letter','clinical_letter.recorded.default','demo',example='standard'); run=self.s.store.run(rid)
-        bad=deepcopy(run['snapshot']['recording']['facts'][0]); bad['facts'][0]['evidence_refs']=[{'corpus_id':'outside','evidence_id':'invented'}]; run['snapshot']['recording']['facts']=[bad,bad]
+        rid=self.s.start('clinical_letter','clinical_letter.recorded.default','demo',example='standard',developer=True,retry_overrides={'output_repair_retries':0}); run=self.s.store.run(rid)
+        bad=deepcopy(run['snapshot']['recording']['facts'][0]); bad['facts'][0]['evidence_refs']=[{'corpus_id':'outside','evidence_id':'invented'}]; run['snapshot']['recording']['facts']=[bad]
         self.s.store.put_run(run); done=self.s.runner.advance(rid); self.assertEqual(done['block']['category'],'integrity'); self.assertFalse(done['block']['human_revisable'])
         # exhausted execution budget is not revisable
         rid=self.s.start('clinical_letter','clinical_letter.recorded.default','demo',example='standard'); run=self.s.store.run(rid); run['snapshot']['policy']['limits']['turns']=1; self.s.store.put_run(run)
@@ -266,7 +266,7 @@ class ClarificationContractTests(Base):
         fault(self,'conflict_claim_mapping_invalid',update_conflict_registry,None,[missing],claims,{('c','a'),('c','b'),('c','d')},'reason')
 
     def test_tape_pairing_and_scratch_immutability(self):
-        rid,r=self.demo(); doc=self.s.capture_fixture(rid,'draft',r['attempts']['draft']); doc.update(id='clinical_letter.draft.immutable',version=1,data_suitability='synthetic')
+        rid,r=self.demo(); doc=self.s.capture_fixture(rid,'draft',r['attempts']['draft']); doc.update(id=f'clinical_letter.draft.immutable.{uuid.uuid4().hex[:8]}',version=1,data_suitability='synthetic')
         path=self.s.save_scratch_fixture(doc); self.assertTrue(Path(path).is_file())
         changed=deepcopy(doc); changed['resolved_inputs']['task']['purpose']='changed'
         fault(self,'fixture_version_changed',self.s.save_scratch_fixture,changed)
@@ -299,7 +299,7 @@ class FinalContractHardeningTests(Base):
     def test_recorded_step_tape_uses_exact_attempt_and_call_index(self):
         rid,r=self.demo('clinical_letter','standard')
         doc=self.s.capture_fixture(rid,'draft',r['attempts']['draft'])
-        doc.update(id='clinical_letter.draft.exactpair',version=1,data_suitability='synthetic')
+        doc.update(id=f'clinical_letter.draft.exactpair.{uuid.uuid4().hex[:8]}',version=1,data_suitability='synthetic')
         self.s.save_scratch_fixture(doc)
         # A response for call 2 must never be consumed as call 1 merely because it is first in sorted order.
         wrong_pair={'tape_schema_version':1,'id':'draft.wrongpair','version':1,'workflow_id':'clinical_letter','node_id':'draft','step_contract_version':1,'fixture_ref':{'id':doc['id'],'version':1},'responses':[{'attempt':1,'call_index':2,'content':'{}'}]}
@@ -313,7 +313,7 @@ class FinalContractHardeningTests(Base):
         result=self.s.runner.advance(step)
         self.assertEqual(result['status'],'blocked')
         self.assertEqual(result['error']['code'],'recording_exhausted')
-        self.assertEqual(result['attempts']['draft'],2)
+        self.assertEqual(result['attempts']['draft'],1); self.assertEqual(len(self.s.store.repairs(step)),1)
 
     def test_draft_checker_rejects_reviewer_omitted_fact_if_model_still_includes_it(self):
         from localmedbot.modules import ContentCheck
@@ -343,13 +343,13 @@ class DeliveryHardeningTests(Base):
         self.assertIn('search',actions);self.assertIn('arguments_schema',actions['search']);self.assertIn('submit',actions);self.assertIn('result_schema',actions['submit'])
 
     def test_scratch_fixture_delete_and_recorded_requires_registered_fixture(self):
-        rid,run=self.demo();doc=self.s.capture_fixture(rid,'draft',run['attempts']['draft']);doc.update(id='clinical_letter.draft.deletecase',version=1,data_suitability='synthetic')
+        rid,run=self.demo();doc=self.s.capture_fixture(rid,'draft',run['attempts']['draft']);doc.update(id=f'clinical_letter.draft.deletecase.{uuid.uuid4().hex[:8]}',version=1,data_suitability='synthetic')
         path=Path(self.s.save_scratch_fixture(doc));self.assertTrue(path.exists());self.s.delete_scratch_fixture(doc['id'],1);self.assertFalse(path.exists())
         tape={'tape_schema_version':1,'id':'draft.unsaved','version':1,'workflow_id':'clinical_letter','node_id':'draft','step_contract_version':1,'fixture_ref':{'id':doc['id'],'version':1},'responses':[{'attempt':1,'call_index':1,'content':'{}'}]}
         fault(self,'recording_pair_mismatch',self.s.run_step,'clinical_letter','draft',doc,'clinical_letter.recorded.default',tape=tape,developer=True)
 
     def test_fixture_runs_in_fresh_store_after_source_run_deleted(self):
-        rid,run=self.demo();doc=self.s.capture_fixture(rid,'draft',run['attempts']['draft']);doc.update(id='clinical_letter.draft.portable',version=1,data_suitability='synthetic')
+        rid,run=self.demo();doc=self.s.capture_fixture(rid,'draft',run['attempts']['draft']);doc.update(id=f'clinical_letter.draft.portable.{uuid.uuid4().hex[:8]}',version=1,data_suitability='synthetic')
         original_ids={x['corpus_id'] for x in doc['evidence_snapshots']};self.s.delete(rid)
         with TemporaryDirectory() as td:
             other=Service(APPS,td,PROFILES,GUIDES,FIXTURES);self.addCleanup(other.close);other.save_scratch_fixture(doc)

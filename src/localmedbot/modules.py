@@ -25,6 +25,85 @@ def _validate_refs(refs,allowed):
     if not refs or any(ref_key(r) not in allowed for r in refs): raise Fault("reference_invalid")
 
 
+def _finding(code,path,problem,fix,expected=None,received=None,ids=None,kind=None):
+    row={"code":code,"instance_location":path,"problem":problem,"required_correction":fix}
+    if kind is not None: row["kind"]=kind
+    if expected is not None: row["expected"]=expected
+    if received is not None: row["received"]=received
+    if ids is not None: row["ids"]=ids
+    return row
+
+def _reason_contract_validator(inputs):
+    def validate_result(value):
+        findings=[]
+        if not isinstance(value,dict): return findings
+        if "facts" in value and isinstance(inputs.get("source"),dict) and "items" in inputs["source"]:
+            allowed={(inputs["source"].get("corpus_id"),i.get("id")) for i in inputs["source"].get("items",[])}
+            facts=value.get("facts",[]); ids=[f.get("id") for f in facts if isinstance(f,dict)]
+            duplicates=sorted({x for x in ids if ids.count(x)>1 and x is not None})
+            if duplicates: findings.append(_finding("contract.duplicate_fact_id","/facts","Fact IDs must be unique.","Use one unique ID per extracted fact.",ids=duplicates))
+            known=set(ids)
+            for i,suggestion in enumerate(value.get("omission_suggestions",[])):
+                if suggestion.get("fact_id") not in known:
+                    findings.append(_finding("contract.invalid_omission_reference",f"/omission_suggestions/{i}/fact_id","The omission suggestion refers to an unknown fact.","Reference an existing fact ID or remove the unsupported suggestion.",expected=sorted(x for x in known if x),received=suggestion.get("fact_id")))
+            for i,fact in enumerate(facts):
+                refs=fact.get("evidence_refs",[]) if isinstance(fact,dict) else []
+                for j,ref in enumerate(refs):
+                    key=(ref.get("corpus_id"),ref.get("evidence_id")) if isinstance(ref,dict) else (None,None)
+                    if key not in allowed:
+                        findings.append(_finding("contract.invalid_evidence_reference",f"/facts/{i}/evidence_refs/{j}","The fact cites evidence outside the supplied source records.","Use an evidence reference present in the supplied source context.",expected=[list(x) for x in sorted(allowed)],received=list(key)))
+        if "claims" in value and isinstance(inputs.get("source"),dict) and "facts" in inputs["source"]:
+            fmap={f.get("id"):f for f in inputs["source"].get("facts",[]) if isinstance(f,dict)}; claims=value.get("claims",[]); ids=[c.get("id") for c in claims if isinstance(c,dict)]
+            duplicates=sorted({x for x in ids if ids.count(x)>1 and x is not None})
+            if duplicates: findings.append(_finding("contract.duplicate_claim_id","/claims","Claim IDs must be unique.","Return at most one claim for each fact ID.",ids=duplicates))
+            for i,claim in enumerate(claims):
+                cid=claim.get("id") if isinstance(claim,dict) else None
+                if cid not in fmap:
+                    findings.append(_finding("contract.unknown_fact_reference",f"/claims/{i}/id","The draft claim refers to a fact that was not supplied.","Use only IDs from the supplied facts.",expected=sorted(x for x in fmap if x),received=cid)); continue
+                expected={ref_key(r) for r in fmap[cid].get("evidence_refs",[])}; received={ref_key(r) for r in claim.get("evidence_refs",[]) if isinstance(r,dict) and "corpus_id" in r and "evidence_id" in r}
+                if received!=expected:
+                    findings.append(_finding("contract.source_reference_changed",f"/claims/{i}/evidence_refs","The draft changed the source linkage for this fact.","Preserve the fact's supplied evidence references exactly.",expected=[list(x) for x in sorted(expected)],received=[list(x) for x in sorted(received)]))
+        return findings
+    return validate_result
+
+def _agent_action_validator(context,inputs,retrieved):
+    def validate_action(value):
+        findings=[]
+        if not isinstance(value,dict): return findings
+        action=value.get("action")
+        if action=="read":
+            args=value.get("arguments",{}); cid=args.get("corpus_id"); eid=args.get("evidence_id")
+            try: context.knowledge.read(cid,eid)
+            except Fault:
+                findings.append(_finding("protocol.invented_reference","/arguments","The requested evidence reference does not exist in the frozen run corpus.","Choose a corpus_id/evidence_id available to this run.",received={"corpus_id":cid,"evidence_id":eid},kind="protocol"))
+        if action=="submit":
+            result=value.get("result",{}); allowed=_candidate_refs(inputs.get("candidates",{}).get("items",[]))|set(retrieved)
+            for i,claim in enumerate(result.get("claims",[]) if isinstance(result,dict) else []):
+                for j,ref in enumerate(claim.get("evidence_refs",[])):
+                    key=ref_key(ref)
+                    if key not in allowed: findings.append(_finding("contract.invalid_evidence_reference",f"/result/claims/{i}/evidence_refs/{j}","The claim cites evidence that was not supplied or retrieved.","Use only evidence references available in this operation.",received=list(key)))
+        return findings
+    return validate_action
+
+def _evidence_stage_validator(claims,candidates):
+    allowed=_candidate_refs(candidates); expected={c["id"] for c in claims}
+    def validate_result(value):
+        findings=[]; rows=value.get("assessments",[]) if isinstance(value,dict) else []; actual=[r.get("claim_id") for r in rows if isinstance(r,dict)]
+        if len(actual)!=len(set(actual)):
+            findings.append(_finding("contract.duplicate_assessment","/assessments","Each claim may be assessed only once.","Return exactly one assessment per supplied claim."))
+        missing=sorted(expected-set(actual)); unknown=sorted(set(actual)-expected)
+        if missing: findings.append(_finding("contract.missing_assessment","/assessments","Some supplied claims were not assessed.","Return one assessment for every supplied claim.",ids=missing))
+        if unknown: findings.append(_finding("contract.unknown_claim","/assessments","Assessments refer to unknown claim IDs.","Use only supplied claim IDs.",ids=unknown))
+        for i,row in enumerate(rows):
+            for j,ref in enumerate(row.get("evidence_refs",[]) if isinstance(row,dict) else []):
+                key=ref_key(ref)
+                if key not in allowed: findings.append(_finding("contract.invalid_evidence_reference",f"/assessments/{i}/evidence_refs/{j}","The assessment cites evidence outside the supplied candidates.","Use only supplied candidate references.",received=list(key)))
+            if isinstance(row,dict) and row.get("decision") in {"support","contradiction"} and not row.get("evidence_refs"):
+                findings.append(_finding("contract.evidence_required",f"/assessments/{i}/evidence_refs","Support/contradiction decisions require evidence.","Provide at least one supplied evidence reference."))
+        return findings
+    return validate_result
+
+
 class Ingestor(Module):
     def execute(self,context,inputs,config):
         profile=config["profile"]; data=inputs["data"]; sources=data["sources"]
@@ -133,7 +212,7 @@ class ReasoningHead(Module):
     model_dependent=True
     def execute(self,context,inputs,config):
         schema=context.node.get("schema",{})
-        if config.get("mode","single")=="single": return ModuleResult(context.call(config["prompt"],inputs,schema,config.get("role","reasoning")))
+        if config.get("mode","single")=="single": return ModuleResult(context.call(config["prompt"],inputs,schema,config.get("role","reasoning"),validators=[_reason_contract_validator(inputs)]))
         # model submission excludes runtime-owned retrieved/conflict_registry fields
         submission=deepcopy(schema); props=submission.get("properties",{}); props.pop("retrieved",None); props.pop("conflict_registry",None); submission["required"]=[x for x in submission.get("required",[]) if x not in {"retrieved","conflict_registry"}]
         action_schema={"oneOf":[
@@ -148,7 +227,7 @@ class ReasoningHead(Module):
               {"name":"read","arguments_schema":action_schema["oneOf"][1]["properties"]["arguments"]},
               {"name":"submit","result_schema":submission}
             ]
-            action=context.call(config["prompt"],messages,action_schema,config.get("role","reasoning"),allowed_actions=allowed_actions)
+            action=context.call(config["prompt"],messages,action_schema,config.get("role","reasoning"),allowed_actions=allowed_actions,validators=[_agent_action_validator(context,inputs,retrieved)])
             if action["action"]=="submit":
                 result=action["result"]; claims=result.get("claims",[]); allowed=_candidate_refs(inputs.get("candidates",{}).get("items",[]))|set(retrieved)
                 for c in claims:
@@ -213,7 +292,7 @@ class EvidenceStage(Module):
     model_dependent=True
     def execute(self,context,inputs,config):
         claims=inputs["claims"]["claims"]; candidates=inputs["candidates"]["items"]; allowed=_candidate_refs(candidates); conflict_schema=config["conflict_schema"]
-        result=context.call(config["prompt"],inputs,assessment_schema(conflict_schema),config.get("role","review")); rows=result["assessments"]
+        result=context.call(config["prompt"],inputs,assessment_schema(conflict_schema),config.get("role","review"),validators=[_evidence_stage_validator(claims,candidates)]); rows=result["assessments"]
         expected={c["id"] for c in claims}; actual=[r["claim_id"] for r in rows]
         if len(actual)!=len(set(actual)) or set(actual)!=expected: raise Fault("reference_invalid")
         for row in rows:

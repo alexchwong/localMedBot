@@ -11,7 +11,6 @@ nodes:
   inputs: {source: artifacts.records, task: run.input}
   config: {prompt: extract.md, role: extraction}
   schema: facts.schema.json
-  repairs: 1
 - id: facts_check
   module: content_check
   needs: [facts]
@@ -19,7 +18,7 @@ nodes:
   inputs: {target: artifacts.facts, source: artifacts.records, task: run.input}
   config: {prompt: check.md, references: true, role: review}
   schema: check.schema.json
-  review: {target: facts, max_revisions: 1}
+  review: {target: facts}
 - id: draft
   module: reason
   needs: [facts_check]
@@ -27,7 +26,6 @@ nodes:
   inputs: {source: artifacts.facts, task: run.input, omission_policy: run.omission_policy}
   config: {prompt: draft.md, role: writing}
   schema: claims.schema.json
-  repairs: 1
 - id: draft_check
   module: content_check
   needs: [draft]
@@ -35,7 +33,7 @@ nodes:
   inputs: {target: artifacts.draft, source: artifacts.facts, task: run.input, omission_policy: run.omission_policy}
   config: {prompt: check.md, coverage: true, role: review}
   schema: check.schema.json
-  review: {target: draft, max_revisions: 1}
+  review: {target: draft}
 - id: output
   module: render
   needs: [draft_check]

@@ -11,7 +11,6 @@ nodes:
   inputs: {task: run.input, candidates: artifacts.candidates}
   config: {prompt: reason.md, mode: agent, max_turns: 6, tools: [evidence.search, evidence.read], role: reasoning}
   schema: claims.schema.json
-  repairs: 1
 - id: collected
   module: retrieve
   needs: [reason]
@@ -29,7 +28,7 @@ nodes:
   inputs: {target: artifacts.output, source: artifacts.support.final, task: run.input}
   config: {prompt: check.md, accepted_only: true, role: review}
   schema: check.schema.json
-  review: {target: reason, max_revisions: 1}
+  review: {target: reason}
 - id: approval
   module: human_review
   needs: [output_check]

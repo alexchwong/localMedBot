@@ -43,3 +43,7 @@ For example:
 ```
 
 The same pattern applies to every model-dependent node returned by `.env/bin/localmedbot --developer steps list WORKFLOW`, including model-backed content checks and the guideline match/audit/adjudication stages. For agentic reasoning, a self response may request `search` or `read`; localMedBot executes that bounded tool itself and returns the observation in the next handoff.
+
+## Retry handoffs and accounting
+
+A structural/schema/reference/protocol defect can produce another `self` handoff for an output repair. That handoff remains within the same stage attempt and logical operation and includes the exact persisted corrective feedback. Re-exporting the still-pending handoff reuses its call identity; duplicate identical submissions are idempotent. `self` handoffs are counted separately from HTTP provider calls, and token/cost values remain unavailable unless an executor contract genuinely supplies them.
