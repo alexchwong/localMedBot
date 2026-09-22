@@ -42,5 +42,11 @@ class BrowserRegressionTests(unittest.TestCase):
         p=self.page;p.locator('#workflow').select_option('guideline_qa');p.locator('#profile').select_option('guideline_qa.recorded.default');p.locator('#input-mode').select_option('demo');p.locator('#example').select_option('conflict');p.get_by_test_id('start').click();self.wait('waiting_review');p.locator('#actor').fill('Browser fixture reviewer');p.locator('#approve').click();self.wait('waiting_review');p.locator('[data-conflict]').first.check();p.locator('#approve').click();self.wait('completed')
     def test_developer_mode_exposes_step_tester(self):
         p=self.page;p.locator('.developer-tab').click();p.locator('#new-fixture').wait_for(state='visible');self.assertFalse(p.locator('#advanced-option').evaluate('(el)=>el.hidden'));p.locator('#step-help').focus();self.assertTrue(p.locator('#step-help').evaluate('(el)=>document.activeElement===el'))
+    def test_reasoning_setting_is_editable_for_http_profiles(self):
+        p=self.page;p.locator('#workflow').select_option('clinical_letter');p.locator('#profile').select_option('clinical_letter.lmstudio.default');p.locator('#settings-disclosure').click()
+        self.assertEqual(p.locator('#reasoning option').evaluate_all('(rows)=>rows.map(x=>x.value)'),['default','none','low','medium','high'])
+        p.locator('#model').fill('fixture-model');p.locator('#reasoning').select_option('high');p.locator('#save-profile').click();p.wait_for_function("()=>document.querySelector('#verify-result').textContent.length>0")
+        resolved=self.s.profiles.resolve('clinical_letter.lmstudio.default',{},workflow_id='clinical_letter',runnable=False)
+        self.assertEqual(resolved['settings']['reasoning'],'high')
 
 if __name__=='__main__':unittest.main()

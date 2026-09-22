@@ -9,6 +9,6 @@ settings:
   temperature: 0
   max_tokens: 4096
   timeout_seconds: 60
-  json_mode: true
+  reasoning: default
 roles: {}
 credential_env: ''

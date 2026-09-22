@@ -24,7 +24,7 @@ def _import_legacy_profile(service,workflow,path):
     pid=f"{workflow}.{executor}.default"; template=service.profiles.template(pid)
     if cfg.get("api_key_env") and cfg.get("api_key_env")!=template.get("credential_env"): raise Fault("legacy_config_ambiguous")
     overlay={"base_url":cfg["base_url"],"model":cfg["model"],"settings":{}}
-    mapping={"temperature":"temperature","max_tokens":"max_tokens","timeout":"timeout_seconds","json_mode":"json_mode"}
+    mapping={"temperature":"temperature","max_tokens":"max_tokens","timeout":"timeout_seconds","json_mode":"json_mode","reasoning":"reasoning"}
     for old,new in mapping.items():
         if old in cfg: overlay["settings"][new]=cfg[old]
     roles={}

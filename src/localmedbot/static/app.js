@@ -7,7 +7,7 @@ let selectionGeneration=0,newestRevision=new Map(),selectedInspector={stage:'',a
 function showError(err,persistent=true){
   const data=err?.data?.error||err?.error||null;
   const parts=[];
-  if(data){parts.push(data.explanation||data.detail||data.code||'Request failed');if(data.remedy)parts.push(data.remedy);if(data.diagnostic_reference)parts.push(`Diagnostic: ${data.diagnostic_reference}`)}
+  if(data){parts.push(data.explanation||data.code||'Request failed');if(data.detail&&['provider_request_rejected','authentication_rejected','provider_transient_failure'].includes(data.code))parts.push(`Provider detail: ${data.detail}`);if(data.remedy)parts.push(data.remedy);if(data.diagnostic_reference)parts.push(`Diagnostic: ${data.diagnostic_reference}`)}
   else parts.push(err?.message||String(err));
   $('error-text').textContent=parts.filter(Boolean).join(' — ');$('error').hidden=false;$('error').dataset.persistent=persistent?'1':'0';
 }
@@ -32,9 +32,11 @@ async function loadProfiles(){
   const prev=$('profile').value;$('profile').replaceChildren(...profiles.map(p=>new Option(p.name,p.id)));if(profiles.some(p=>p.id===prev))$('profile').value=prev;else{const chosen=profiles.find(p=>p.selected)||profiles[0];if(chosen)$('profile').value=chosen.id}
   $('step-profile').replaceChildren(...profiles.map(p=>new Option(p.name,p.id)));if($('profile').value)$('step-profile').value=$('profile').value;showProfile();
 }
-function showProfile(){const p=profiles.find(x=>x.id===$('profile').value);if(!p)return;$('base-url').value=p.base_url||'';$('model').value=p.model||'';$('credential').value='';const d=p.destination||{};$('destination').textContent=`${p.executor} · ${p.model||'model not set'} · ${d.classification||'destination unknown'}${p.credential_present?' · credential present':''}`}
-async function saveProfile(){const p=profiles.find(x=>x.id===$('profile').value);if(!p)return;const overlay={};if($('base-url').value.trim())overlay.base_url=$('base-url').value.trim();if($('model').value.trim())overlay.model=$('model').value.trim();const body={profile_id:p.id,overlay};if($('credential').value)body.credential=$('credential').value;await api('/api/model-profiles/configure',body);await loadProfiles();$('verify-result').textContent='Settings saved.'}
-async function verifyProvider(){const r=await api('/api/providers/verify',{profile_id:$('profile').value,workflow_id:workflow(),profile_overrides:{base_url:$('base-url').value,model:$('model').value}});$('verify-result').textContent=r.success?'Verification succeeded.':JSON.stringify(r.results,null,2)}
+function reasoningChoices(executor){if(executor==='openrouter')return ['default','none','minimal','low','medium','high','xhigh'];if(executor==='lmstudio')return ['default','none','low','medium','high'];return ['default']}
+function profileOverrides(){const out={base_url:$('base-url').value,model:$('model').value,settings:{reasoning:$('reasoning').value||'default'}};return out}
+function showProfile(){const p=profiles.find(x=>x.id===$('profile').value);if(!p)return;$('base-url').value=p.base_url||'';$('model').value=p.model||'';$('credential').value='';const selected=p.settings?.reasoning||'default';$('reasoning').replaceChildren(...reasoningChoices(p.executor).map(v=>new Option(v[0].toUpperCase()+v.slice(1),v)));$('reasoning').value=reasoningChoices(p.executor).includes(selected)?selected:'default';$('reasoning').disabled=!['openrouter','lmstudio'].includes(p.executor);const d=p.destination||{};$('destination').textContent=`${p.executor} · ${p.model||'model not set'} · ${d.classification||'destination unknown'}${p.credential_present?' · credential present':''}`}
+async function saveProfile(){const p=profiles.find(x=>x.id===$('profile').value);if(!p)return;const overlay=profileOverrides();if(!overlay.base_url.trim())delete overlay.base_url;if(!overlay.model.trim())delete overlay.model;const body={profile_id:p.id,overlay};if($('credential').value)body.credential=$('credential').value;await api('/api/model-profiles/configure',body);await loadProfiles();$('verify-result').textContent='Settings saved.'}
+async function verifyProvider(){const r=await api('/api/providers/verify',{profile_id:$('profile').value,workflow_id:workflow(),profile_overrides:profileOverrides()});$('verify-result').textContent=r.success?'Verification succeeded.':JSON.stringify(r.results,null,2)}
 
 async function chooseWorkflow(){
   await loadProfiles();const app=apps.find(a=>a.id===workflow());$('example').replaceChildren(...(app?.examples||[]).map(x=>new Option(x,x)));await loadSets();await loadSteps();showInputs();
@@ -46,7 +48,7 @@ async function showVersions(rows){if(workflow()!=='guideline_qa')return;const se
 
 async function startRun(){
   const mode=$('input-mode').value;let input={};if(mode==='free_text')input=workflow()==='clinical_letter'?{notes:$('notes').value,purpose:$('purpose').value}:{question:$('question').value};else if(mode==='advanced')input=parseJson('advanced-input',{});
-  const payload={workflow_id:workflow(),profile_id:$('profile').value,input_mode:mode,input,profile_overrides:{base_url:$('base-url').value,model:$('model').value}};
+  const payload={workflow_id:workflow(),profile_id:$('profile').value,input_mode:mode,input,profile_overrides:profileOverrides()};
   if(mode==='demo')payload.example=$('example').value;if(mode==='copied')payload.copy_input_id=copyInputId;if(workflow()==='guideline_qa')payload.guideline_selection={set_id:$('guideline-set').value,selector:$('guideline-version').value};if(developer){const o=retryOverrides();if(Object.keys(o).length)payload.retry_overrides=o}
   const r=await api('/api/runs',payload);selectRun(r.id);await refresh(r.id,selectionGeneration);
 }

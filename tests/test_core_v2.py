@@ -75,6 +75,14 @@ class VersionAndProfileTests(Base):
         fault(self,'profile_workflow_mismatch',self.s.profiles.resolve,pid,{},workflow_id='guideline_qa')
         fault(self,'profile_override_invalid',self.s.configure_profile,pid,{'model':None})
         fault(self,'profile_override_invalid',self.s.configure_profile,pid,{'executor':'lmstudio'})
+    def test_reasoning_is_provider_validated_and_frozen_into_run(self):
+        pid='clinical_letter.openrouter.default'
+        self.s.configure_profile(pid,{'model':'fixture','settings':{'reasoning':'high'}},credential='fixture-token')
+        rid=self.s.start('clinical_letter',pid,'free_text',{'notes':'Synthetic note.','purpose':'Synthetic update'})
+        self.s.configure_profile(pid,{'model':'fixture','settings':{'reasoning':'low'}})
+        run=self.s.store.run(rid)
+        self.assertEqual(run['profile']['effective_roles']['writing']['reasoning'],'high')
+        fault(self,'profile_override_invalid',self.s.configure_profile,'clinical_letter.lmstudio.default',{'settings':{'reasoning':'minimal'}})
     def test_locality_is_explicit_ranges(self):
         base={'executor':'lmstudio','base_url':'http://127.0.0.1:1234/v1'}
         self.assertEqual(classify_destination(base)['classification'],'local_network')
@@ -154,10 +162,11 @@ class ProviderTests(Base):
         # clinical letter has three distinct roles in the profile defaults
         responses=[reply(schema_value) for _ in range(3)]
         with endpoint(responses) as (url,requests):
-            pid='clinical_letter.openrouter.default'; self.s.configure_profile(pid,{'base_url':url,'model':'fixture-model'},credential='fixture-token')
+            pid='clinical_letter.openrouter.default'; self.s.configure_profile(pid,{'base_url':url,'model':'fixture-model','settings':{'reasoning':'high'}},credential='fixture-token')
             result=self.s.verify_provider(pid,'clinical_letter'); self.assertTrue(result['success'],result)
             self.assertTrue(requests); self.assertTrue(all(x['auth']=='Bearer fixture-token' for x in requests)); self.assertTrue(all(x['path'].endswith('/chat/completions') for x in requests))
             self.assertTrue(all(x['json']['model']=='fixture-model' for x in requests))
+            self.assertTrue(all(x['json'].get('reasoning')=={'effort':'high'} for x in requests)); self.assertTrue(all('response_format' not in x['json'] for x in requests))
     def test_http_auth_rejected_no_fallback(self):
         with endpoint([401]) as (url,_):
             pid='clinical_letter.openrouter.default'; self.s.configure_profile(pid,{'base_url':url,'model':'fixture-model'},credential='fixture-token')

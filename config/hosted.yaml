@@ -5,4 +5,4 @@ api_key_env: OPENROUTER_API_KEY
 max_tokens: 4096
 timeout: 60
 temperature: 0
-json_mode: true
+reasoning: default

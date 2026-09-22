@@ -41,9 +41,9 @@ Runtime locations are centralized and default relative to the launch directory: 
 
 Provider/model choices are workflow-specific **model profiles**, not workflow pipelines. Shipped profiles exist for OpenRouter, LM Studio, recorded demonstrations, and developer-only `self` execution.
 
-The ordinary UI can configure OpenRouter or LM Studio endpoint/model and a process-memory credential, verify protocol compatibility, then run either workflow without editing JSON/YAML. Non-local/unknown execution is visibly warned because submitted text may leave the local domain.
+The ordinary UI can configure OpenRouter or LM Studio endpoint/model, reasoning level, and a process-memory credential, verify the same provider protocol used by a run, then run either workflow without editing JSON/YAML. Non-local/unknown execution is visibly warned because submitted text may leave the local domain.
 
-OpenRouter defaults to `https://openrouter.ai/api/v1` and uses `OPENROUTER_API_KEY`. LM Studio defaults to `http://127.0.0.1:1234/v1`; an optional local-server token uses `LOCALMEDBOT_API_KEY`. No model is silently selected.
+OpenRouter defaults to `https://openrouter.ai/api/v1` and uses `OPENROUTER_API_KEY`; explicit reasoning levels are sent through its Chat Completions reasoning control. LM Studio defaults to `http://127.0.0.1:1234/v1`; an optional local-server token uses `LOCALMEDBOT_API_KEY`. LM Studio uses Responses for adjustable reasoning and native chat when reasoning is explicitly disabled. No model is silently selected and an explicit reasoning level is never silently downgraded.
 
 ## Tests
 

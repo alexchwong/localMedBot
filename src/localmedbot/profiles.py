@@ -11,10 +11,12 @@ import yaml
 from .contracts import Fault
 
 _ALLOWED_PROFILE = {"schema_version","id","name","workflow_id","executor","base_url","model","settings","roles","credential_env"}
-_ALLOWED_SETTINGS = {"temperature","max_tokens","timeout_seconds","json_mode"}
+_ALLOWED_SETTINGS = {"temperature","max_tokens","timeout_seconds","json_mode","reasoning"}
 _ALLOWED_ROLE = {"model", *_ALLOWED_SETTINGS}
 _ROLES = {"extraction","writing","reasoning","match","audit","adjudication","review"}
 _EXECUTORS = {"openrouter","lmstudio","self","recorded"}
+_REASONING_LEVELS = {"default","none","minimal","low","medium","high","xhigh"}
+_LMSTUDIO_REASONING = {"default","none","low","medium","high"}
 
 
 class CredentialVault:
@@ -78,12 +80,15 @@ def validate_profile(doc: dict, runnable: bool = True) -> dict:
     temp = s.get("temperature", 0)
     max_tokens = s.get("max_tokens", 4096)
     timeout = s.get("timeout_seconds", 60)
+    reasoning = s.get("reasoning", "default")
     if isinstance(temp, bool) or not isinstance(temp,(int,float)) or not 0 <= temp <= 2:
         raise Fault("profile_override_invalid", "temperature")
     if isinstance(max_tokens,bool) or not isinstance(max_tokens,int) or not 1 <= max_tokens <= 32768:
         raise Fault("profile_override_invalid", "max_tokens")
     if isinstance(timeout,bool) or not isinstance(timeout,(int,float)) or not 1 <= timeout <= 300:
         raise Fault("profile_override_invalid", "timeout_seconds")
+    if not isinstance(reasoning,str) or reasoning not in _REASONING_LEVELS:
+        raise Fault("profile_override_invalid", "reasoning")
     if doc.get("model") is not None and (not isinstance(doc.get("model"),str) or not doc.get("model").strip()):
         raise Fault("profile_override_invalid", "model")
     for role,cfg in doc.get("roles",{}).items():
@@ -92,6 +97,11 @@ def validate_profile(doc: dict, runnable: bool = True) -> dict:
         probe = {**s, **{k:v for k,v in cfg.items() if k in _ALLOWED_SETTINGS}}
         validate_profile({**doc,"settings":probe,"roles":{}}, runnable=False) if cfg else None
     executor = doc["executor"]
+    reasonings=[reasoning,*[cfg.get("reasoning",reasoning) for cfg in doc.get("roles",{}).values()]]
+    if executor=="lmstudio" and any(value not in _LMSTUDIO_REASONING for value in reasonings):
+        raise Fault("profile_override_invalid", "reasoning")
+    if executor in {"self","recorded"} and any(value!="default" for value in reasonings):
+        raise Fault("profile_override_invalid", "reasoning")
     _validate_url(doc.get("base_url", ""), executor)
     if runnable and executor in {"openrouter","lmstudio"} and not doc.get("model"):
         raise Fault("model_missing")
