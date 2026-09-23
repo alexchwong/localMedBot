@@ -69,7 +69,9 @@ def main(argv=None):
     pp=sub.add_parser("profiles"); pps=pp.add_subparsers(dest="profiles_command",required=True); q=pps.add_parser("list"); q.add_argument("--workflow"); q=pps.add_parser("import-legacy"); q.add_argument("--workflow",required=True); q.add_argument("--file",required=True)
     pv=sub.add_parser("providers"); pvs=pv.add_subparsers(dest="providers_command",required=True); q=pvs.add_parser("verify"); q.add_argument("--profile",required=True); q.add_argument("--workflow",required=True)
     r=sub.add_parser("run"); r.add_argument("workflow"); r.add_argument("--profile",required=True); r.add_argument("--example"); r.add_argument("--input"); r.add_argument("--input-mode",choices=["demo","free_text","advanced"],default="advanced"); r.add_argument("--guideline-set",default="demo"); r.add_argument("--guideline-version",default="default"); r.add_argument("--output-repair-retries",type=int); r.add_argument("--semantic-revision-retries",type=int)
-    for cmd in ["status","resume","cancel","delete"]: q=sub.add_parser(cmd); q.add_argument("run_id")
+    for cmd in ["status","resume","cancel","delete"]:
+        q=sub.add_parser(cmd); q.add_argument("run_id")
+        if cmd=="resume": q.add_argument("--acknowledge-external-retry",action="store_true",help="Allow an uncertain provider request to repeat (may execute or bill twice)")
     rv=sub.add_parser("review"); rv.add_argument("run_id"); rv.add_argument("--revision",type=int); rv.add_argument("--actor",required=True); rv.add_argument("--decision",choices=["approve","reject","revise"],required=True); rv.add_argument("--comments",default=""); rv.add_argument("--target"); rv.add_argument("--review-request-id"); rv.add_argument("--ack-omission",action="append",default=[]); rv.add_argument("--ack-conflict",action="append",default=[])
     gl=sub.add_parser("guidelines"); gls=gl.add_subparsers(dest="guidelines_command",required=True); gls.add_parser("list"); qi=gls.add_parser("import"); qi.add_argument("set_id"); qi.add_argument("--sources",required=True); qi.add_argument("--profile"); qi.add_argument("--ingestion-profile"); qp=gls.add_parser("promote"); qp.add_argument("set_id"); qp.add_argument("--expected-snapshot",required=True); qp.add_argument("--note",required=True); qp.add_argument("--actor",required=True)
     st=sub.add_parser("steps"); sts=st.add_subparsers(dest="steps_command",required=True); q=sts.add_parser("list"); q.add_argument("workflow"); q=sts.add_parser("run"); q.add_argument("workflow"); q.add_argument("node"); q.add_argument("--fixture",required=True); q.add_argument("--profile",required=True); q.add_argument("--tape"); q.add_argument("--output-repair-retries",type=int); q.add_argument("--semantic-revision-retries",type=int)
@@ -102,7 +104,7 @@ def main(argv=None):
             mode="demo" if a.example else a.input_mode
             overrides={k:v for k,v in {"output_repair_retries":a.output_repair_retries,"semantic_revision_retries":a.semantic_revision_retries}.items() if v is not None}; rid=service.start(a.workflow,a.profile,mode,data,guideline_selection={"set_id":a.guideline_set,"selector":a.guideline_version},example=a.example,developer=a.developer,retry_overrides=overrides); result=service.runner.advance(rid)
         elif a.command=="status": result=service.inspect(a.run_id,developer=a.developer)
-        elif a.command=="resume": result=service.resume(a.run_id)
+        elif a.command=="resume": result=service.resume(a.run_id,acknowledge_external_retry=a.acknowledge_external_retry)
         elif a.command=="cancel": service.runner.cancel(a.run_id); result=service.store.run(a.run_id)
         elif a.command=="delete": service.delete(a.run_id); result={"deleted":True}
         elif a.command=="review":

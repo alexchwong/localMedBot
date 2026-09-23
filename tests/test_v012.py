@@ -67,6 +67,25 @@ class AuditAndRepairTests(Base):
                 self.assertEqual(calls[0]['raw_response'],'{broken')
                 if node=='facts_check': self.assertEqual(self.s.store.semantic_revisions(rid),[])
 
+    def test_persisted_repair_message_preserves_scope_and_exposes_repetition(self):
+        doc=self.captured('draft')
+        valid={'document':' '.join(f['text'] for f in doc['resolved_inputs']['source']['facts']),'provenance':[{'passage':f['text'],'fact_ids':[f['id']],'evidence_refs':f['evidence_refs']} for f in doc['resolved_inputs']['source']['facts']]}
+        raw='{test-controlled invalid response'
+        rid=self.s.run_step('clinical_letter','draft',doc,'clinical_letter.recorded.default',tape=self.tape(doc,[raw,json.dumps(valid)]),developer=True,retry_overrides={'output_repair_retries':1})
+        self.assertEqual(self.s.runner.advance(rid)['status'],'completed')
+        initial,repair=self.s.store.model_calls(rid)
+        messages=repair['messages'];self.assertEqual([m['role'] for m in messages],['system','user','assistant','user'])
+        self.assertEqual(messages[:2],initial['messages'][:2]);self.assertEqual(messages[2]['content'],raw)
+        marker='Repair envelope:\n';self.assertIn(marker,messages[3]['content'])
+        envelope=json.loads(messages[3]['content'].split(marker,1)[1])
+        self.assertEqual(envelope['failed_raw_response'],raw)
+        self.assertEqual(envelope['original_task'],initial['task_prompt'])
+        self.assertEqual(envelope['source_context'],initial['source_context'])
+        self.assertEqual(envelope['unchanged_output_schema'],initial['output_schema'])
+        self.assertEqual(envelope['allowed_actions'],initial['allowed_actions'])
+        self.assertEqual(json.loads(messages[1]['content']),envelope['source_context'])
+        self.assertTrue(envelope['findings'])
+
     def test_final_allowed_output_repair_succeeds_and_identical_failures_exhaust_exactly(self):
         doc=self.captured('draft')
         valid={'document':' '.join(f['text'] for f in doc['resolved_inputs']['source']['facts']),'provenance':[{'passage':f['text'],'fact_ids':[f['id']],'evidence_refs':f['evidence_refs']} for f in doc['resolved_inputs']['source']['facts']]}

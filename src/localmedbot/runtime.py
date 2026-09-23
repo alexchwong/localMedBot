@@ -34,6 +34,18 @@ _INTEGRITY_CODES={"syntax_invalid","schema_invalid","reference_invalid","protoco
 _BUDGET_CODES={"budget_exhausted","agent_turn_limit","repair_context_too_large"}
 _CONFIG_CODES={"model_missing","endpoint_invalid","profile_invalid","profile_override_invalid","profile_workflow_mismatch","model_unavailable","schema_definition_invalid"}
 _RECOVERABLE_PROVIDER={"credential_missing","authentication_rejected","endpoint_unreachable","provider_timeout","provider_transient_failure","provider_request_rejected","provider_incompatible_response","provider_redirect_rejected","output_truncated","external_response_unknown"}
+# Process interruption and unexpected termination are recoverable only through an
+# explicit operator action; the runtime never continues them on its own.
+_RECOVERABLE_EXECUTION={"execution_interrupted","execution_stopped","execution_dispatch_failed"}
+
+
+def recovery_action(run):
+    """Classify the single explicit recovery action permitted for a failed run."""
+    if run.get("status")!="failed": return None
+    code=(run.get("error") or {}).get("code")
+    if code in _RECOVERABLE_PROVIDER or code in _RECOVERABLE_EXECUTION:
+        return "explicit_external_retry" if code=="external_response_unknown" else "resume"
+    return None
 
 
 def block_for(exc,node_id,attempt,run):
@@ -134,7 +146,7 @@ class Context:
 
 class Runner:
     def __init__(self,store,registry,model_steps): self.store,self.registry,self.model_steps=store,registry,model_steps; self.lock=threading.RLock()
-    def create(self,snapshot,input_value,profile,corpora=None,rid=None,origins=None,derived_from_run_id=None,retry_overrides=None):
+    def create(self,snapshot,input_value,profile,corpora=None,rid=None,origins=None,derived_from_run_id=None,retry_overrides=None,title=None):
         snapshot=compile_workflow(deepcopy(snapshot),self.registry); validate(input_value,snapshot.get("input_schema",{}))
         if rid is None:
             for _ in range(10):
@@ -145,7 +157,7 @@ class Runner:
         run={"id":rid,"status":"pending","run_contract_version":RUN_CONTRACT_VERSION,"step_contract_version":STEP_CONTRACT_VERSION,"input":deepcopy(input_value),"snapshot":snapshot,"profile":deepcopy(profile),
              "corpora":list(corpora or []),"nodes":{},"active":{},"attempts":{},"feedback":{},"cycles":{},"semantic_episodes":{},"provider_offsets":{},"retry_limits":retry_limits,"repair_counts":{},
              "usage":{"turns":0,"tokens":0,"tool_calls":0,"seconds":0},"node_usage":{},"approval":None,"review_disposition":None,"omission_policy":{"extraction_revision":None,"omitted_fact_ids":[],"reasons":{},"review_event_id":None},
-             "created":time.time(),"runtime_version":__version__,"origins":origins or {"task_input":"unknown","evidence":{},"revision_feedback":{}},"data_origin":aggregate_origins(origins or {"task_input":"unknown","evidence":{},"revision_feedback":{}}),"derived_from_run_id":derived_from_run_id,
+             "created":time.time(),"title":title,"runtime_version":__version__,"origins":origins or {"task_input":"unknown","evidence":{},"revision_feedback":{}},"data_origin":aggregate_origins(origins or {"task_input":"unknown","evidence":{},"revision_feedback":{}}),"derived_from_run_id":derived_from_run_id,
              "block":None,"error":None,"waiting_request_id":None,"cancel_requested":False,"external_response_unknown":False,"check_outcomes":{},"evidence_outcome":None,"self_executor_label":"unreported" if profile.get("executor")=="self" else None}
         for n in snapshot["workflow"]["nodes"]: run["nodes"][n["id"]]="pending"; run["node_usage"][n["id"]]={"turns":0,"tokens":0,"tool_calls":0,"seconds":0}
         self.store.create_run(run); self.store.event(run["id"],"created",{"profile_id":profile["id"],"executor":profile["executor"],"corpora":run["corpora"],"run_contract_version":RUN_CONTRACT_VERSION,"retry_limits":retry_limits})
@@ -215,7 +227,7 @@ class Runner:
     def _block_or_fail(self,run,ctx,exc):
         presentation=present_error(exc,stage=ctx.node["id"],attempt=ctx.attempt)
         if exc.code in _RECOVERABLE_PROVIDER:
-            run["status"]="failed"; run["error"]={**presentation,"recovery_action":"resume"}; run["block"]=None; self._set_attempt_state(run,ctx.node["id"],ctx.attempt,"failed",error=deepcopy(run["error"])); run["nodes"][ctx.node["id"]]="failed"
+            run["status"]="failed"; run["error"]={**presentation,"recovery_action":"explicit_external_retry" if exc.code=="external_response_unknown" else "resume"}; run["block"]=None; self._set_attempt_state(run,ctx.node["id"],ctx.attempt,"failed",error=deepcopy(run["error"])); run["nodes"][ctx.node["id"]]="failed"
         else:
             block=block_for(exc,ctx.node["id"],ctx.attempt,run); run["status"]="blocked"; run["block"]=block; run["error"]=presentation; self._set_attempt_state(run,ctx.node["id"],ctx.attempt,"blocked",error=deepcopy(run["error"])); run["nodes"][ctx.node["id"]]="blocked"
         ctx.save(); return run
@@ -248,6 +260,7 @@ class Runner:
                     if old and json.dumps(old.get("resolved_inputs"),sort_keys=True)!=json.dumps(inputs,sort_keys=True): raise Fault("resume_contract_mismatch")
                     if old: attempt_doc={**old,"state":"executing"}
                     self.store.put_step_attempt(rid,nid,ctx.attempt,attempt_doc)
+                    if not old: ctx.event("node_start",{"node_id":nid,"attempt":ctx.attempt})
                     result=self.registry.get(node["module"]).execute(ctx,inputs,node.get("config",{})); validate(result.payload,node.get("schema",{})); self.model_steps.guard_persist(result.payload,run["profile"]); ctx.reserve()
                     if run.get("cancel_requested"):
                         run["status"]="cancelled"; run["approval"]=None; self._set_attempt_state(run,nid,ctx.attempt,"cancelled"); ctx.save(); self.store.event(rid,"cancelled",{"before_commit_node":nid}); return run
@@ -263,18 +276,25 @@ class Runner:
                     ctx.event("node_error",{"code":exc.code,"detail":exc.detail,"findings":exc.findings})
                     return self._block_or_fail(run,ctx,exc)
 
-    def resume(self,rid):
+    def resume(self,rid,acknowledge_external_retry=False):
         with self.lock:
             run=self.store.run(rid); self._legacy_guard(run)
             if run["status"] in {"blocked","rejected","completed","waiting_review","cancelled"}: raise Fault("run_not_resumable")
             if run["status"]=="failed":
-                code=(run.get("error") or {}).get("code")
-                if code=="external_response_unknown": run["external_retry_authorized"]=True
+                code=(run.get("error") or {}).get("code"); action=recovery_action(run)
+                if action is None: raise Fault("run_not_resumable")
+                if action=="explicit_external_retry":
+                    if acknowledge_external_retry is not True: raise Fault("external_retry_acknowledgement_required")
+                    run["external_retry_authorized"]=True
+                elif code in _RECOVERABLE_EXECUTION:
+                    # Only authorize a repeat when an interrupted execution left a request
+                    # that had already failed at the provider without being re-driven.
+                    if any(r.get("status") in {"provider_error","setup_error"} for r in self.store.model_calls(rid)): run["provider_retry_authorized"]=True
                 else: run["provider_retry_authorized"]=True
                 node=(run.get("error") or {}).get("stage")
                 if node and run["nodes"].get(node)=="failed": run["nodes"][node]="running"
                 run["status"]="pending"
-                self.store.event(rid,"resume_requested",{"previous_error":code,"external_call_may_repeat":code=="external_response_unknown"})
+                self.store.event(rid,"resume_requested",{"previous_error":code,"external_call_may_repeat":code=="external_response_unknown","recovery_action":action})
                 self.store.put_run(run)
         return self.advance(rid)
     def review(self,rid,payload):

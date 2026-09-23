@@ -88,8 +88,15 @@ class LauncherTests(unittest.TestCase):
     def test_real_loopback_server_no_browser_and_http_failures(self):
         with TemporaryDirectory() as tmp:
             probe=socket.socket();probe.bind(('127.0.0.1',0));port=probe.getsockname()[1];probe.close()
-            command=[str(ROOT/'.env/bin/localmedbot'),'--data',tmp,'serve','--port',str(port),'--no-browser']
-            process=subprocess.Popen(command,cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+            command=[str(ROOT/'.env/bin/localmedbot'),'--data',tmp,'--runs-root',str(Path(tmp)/'runs'),'serve','--port',str(port),'--no-browser']
+            # Background test launchers can inherit SIGINT ignored. Give the exec'd
+            # server a normal interrupt disposition without changing the parent later.
+            previous_interrupt=signal.getsignal(signal.SIGINT)
+            try:
+                signal.signal(signal.SIGINT,signal.default_int_handler)
+                process=subprocess.Popen(command,cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+            finally:
+                signal.signal(signal.SIGINT,previous_interrupt)
             try:
                 for _ in range(80):
                     if process.poll() is not None:self.fail('Server exited before binding')

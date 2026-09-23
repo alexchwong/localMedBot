@@ -1,5 +1,14 @@
 # Change history
 
+## 0.1.4 — unreleased; not releaseable
+
+- Observe background worker completion, including a worker that returns while its run is still active, and reconcile abandoned pending or running runs at writer startup. Interrupted executions become durable failures that continue only through explicit resume; an uncertain provider dispatch additionally requires acknowledgement before a request can be repeated.
+- Project frozen workflow stages, persisted attempts, model calls, physical calls, output repairs and semantic revisions into read-only chronological inspection. The progress rail counts model stages reached, not completed or approved; reached and valid stage indicators remain distinct, including after revisions. Show frozen retry limits and distinguish feedback recorded from feedback actually dispatched.
+- Add optional operator-supplied run titles, newest-first run summaries, workflow filtering and independently refreshed browser history. Inspecting an older run does not replace the tracked live run; the browser offers a return-to-live control. Missing committed artifacts remain unavailable and explicitly degrade inspection rather than appearing as valid output. Full execution inputs and responses in the new projection remain Developer-only.
+- Replace the clinical middle-pane disclosure lists with tabs for model calls, repairs and omission editing. Select recorded calls by stage and call/retry, browse history by workflow, local date and title, and request draft revision explicitly for reasoned omissions. The RHS input view displays submitted text with its original line breaks and the selected purpose.
+
+Release permission remains false; preview verification does not grant publication or clinical validation.
+
 ## 0.1.3 — unreleased; not releaseable
 
 - Unify Clinical and Developer workspace selection with backend session mode, and separate workflow input, execution inspection and tabbed frozen run input/output into three browser panes.

@@ -1,19 +1,20 @@
 """Local browser surface over the shared Service contract."""
 from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
-import secrets,uuid,logging
+import secrets,uuid,logging,threading
 from flask import Flask,request,jsonify,render_template,g,send_file
 from werkzeug.exceptions import HTTPException
 from .contracts import Fault
 from .knowledge import Knowledge
 from .errors import present_error
+from .runtime import recovery_action
 from . import __version__
 
 _MUTATING={"POST","PUT","PATCH","DELETE"}
 
 def create_app(service):
     app=Flask(__name__); app.config["MAX_CONTENT_LENGTH"]=2*1024*1024
-    sessions={}; pool=ThreadPoolExecutor(max_workers=1,thread_name_prefix="workflow"); pending={}
+    sessions={}; pool=ThreadPoolExecutor(max_workers=1,thread_name_prefix="workflow"); pending={}; pending_lock=threading.Lock()
     app.extensions.update(localmedbot_pool=pool,localmedbot_sessions=sessions)
 
     def session(): return sessions[g.session_id]
@@ -43,12 +44,35 @@ def create_app(service):
         d=request.get_json()
         if not isinstance(d,dict) or set(d)-set(allowed) or any(k not in d for k in required): raise Fault("invalid_input")
         return d
-    def launch(rid):
-        if rid not in pending or pending[rid].done(): pending[rid]=pool.submit(service.runner.advance,rid)
+    def launch(rid,operation=None):
+        with pending_lock:
+            if rid in pending and not pending[rid].done(): raise Fault("run_active")
+            try:
+                future=pool.submit(operation or service.runner.advance,rid)
+            except Exception:
+                app.logger.error("Execution submission failed for %s",rid)
+                service.store.stop_execution(rid,"execution_dispatch_failed",uuid.uuid4().hex[:12])
+                raise Fault("execution_dispatch_failed") from None
+            pending[rid]=future
+        def completed(done):
+            with pending_lock:
+                if pending.get(rid) is not done: return
+                try:
+                    done.result()
+                    run=service.store.run(rid)
+                    if run["status"] in {"pending","running"}:
+                        service.store.stop_execution(rid,"execution_stopped",uuid.uuid4().hex[:12],run["inspection_revision"])
+                except Exception:
+                    reference=uuid.uuid4().hex[:12]
+                    # Never log exception payloads: provider messages can contain secrets or patient text.
+                    app.logger.error("Execution worker failed for %s (diagnostic %s)",rid,reference)
+                    try: service.store.stop_execution(rid,"execution_stopped",reference)
+                    except Exception: app.logger.error("Execution reconciliation unavailable (diagnostic %s)",reference)
+        future.add_done_callback(completed)
 
     @app.errorhandler(Fault)
     def fault(exc):
-        code=exc.code; status=403 if code in {"developer_disabled","scope_denied"} else 404 if code.endswith("_not_found") else 413 if code=="input_too_large" else 409 if code.startswith("stale_") or code in {"review_request_conflict","response_already_submitted","run_active","run_not_active","review_revision_required"} else 400
+        code=exc.code; status=403 if code in {"developer_disabled","scope_denied"} else 404 if code.endswith("_not_found") else 413 if code=="input_too_large" else 409 if code.startswith("stale_") or code in {"review_request_conflict","response_already_submitted","run_active","run_not_active","review_revision_required","run_not_resumable"} else 400
         return jsonify(error=present_error(exc)),status
     @app.errorhandler(HTTPException)
     def http_error(exc): return jsonify(error={**present_error({"code":"http_error","detail":str(exc)}),"status":exc.code}),exc.code
@@ -94,11 +118,15 @@ def create_app(service):
     @app.get("/api/runs")
     def runs():
         rows=[]
-        for r in service.store.runs(): rows.append({"id":r["id"],"status":r.get("status","legacy"),"application":r.get("snapshot",{}).get("manifest",{}).get("name","Legacy run"),"created":r.get("created"),"legacy":"run_contract_version" not in r})
+        for r in service.store.runs():
+            workflow=r.get("snapshot",{}).get("manifest",{})
+            if request.args.get("workflow_id") and workflow.get("id")!=request.args["workflow_id"]: continue
+            rows.append({"id":r["id"],"status":r.get("status","legacy"),"application":workflow.get("name","Legacy run"),"workflow_id":workflow.get("id"),"title":r.get("title"),"created":r.get("created"),"inspection_revision":r.get("inspection_revision"),"legacy":"run_contract_version" not in r})
+        rows.sort(key=lambda r:(r["created"] or 0,r["id"]),reverse=True)
         return jsonify(rows)
     @app.post("/api/runs")
     def start():
-        d=body({"workflow_id","profile_id","input_mode","input","profile_overrides","guideline_selection","example","copy_input_id","retry_overrides"},{"workflow_id","profile_id"}); mode=d.get("input_mode","free_text"); input_data=d.get("input",{}); derived=None; origin=None
+        d=body({"workflow_id","profile_id","input_mode","input","profile_overrides","guideline_selection","example","copy_input_id","retry_overrides","title"},{"workflow_id","profile_id"}); mode=d.get("input_mode","free_text"); input_data=d.get("input",{}); derived=None; origin=None
         if mode=="advanced": dev_required()
         if mode=="copied":
             token=d.get("copy_input_id"); copied=session()["copies"].get(token)
@@ -107,23 +135,34 @@ def create_app(service):
             if d["workflow_id"]=="guideline_qa":
                 sel=d.get("guideline_selection") or {}
                 if not isinstance(sel.get("set_id"),str) or not sel.get("set_id") or not isinstance(sel.get("selector"),str) or not sel.get("selector"): raise Fault("guideline_selection_required")
-        rid=service.start(d["workflow_id"],d["profile_id"],mode,input_data,d.get("profile_overrides"),d.get("guideline_selection"),d.get("example"),developer=session()["developer_enabled"],derived_from_run_id=derived,origin_override=origin,retry_overrides=d.get("retry_overrides"))
+        rid=service.start(d["workflow_id"],d["profile_id"],mode,input_data,d.get("profile_overrides"),d.get("guideline_selection"),d.get("example"),developer=session()["developer_enabled"],derived_from_run_id=derived,origin_override=origin,retry_overrides=d.get("retry_overrides"),title=d.get("title"))
         if mode=="copied": session()["copies"].pop(d["copy_input_id"],None)
         launch(rid); return jsonify(id=rid),202
     @app.get("/api/runs/<rid>")
     def inspect(rid): return jsonify(service.inspect(rid,developer=session()["developer_enabled"]))
     @app.post("/api/runs/<rid>/resume")
     def resume(rid):
-        body(set())
-        service.store.run(rid)
-        if rid not in pending or pending[rid].done(): pending[rid]=pool.submit(service.resume,rid)
+        d=body({"acknowledge_external_retry"})
+        action=recovery_action(service.store.run(rid))
+        if action is None: raise Fault("run_not_resumable")
+        if action=="explicit_external_retry" and d.get("acknowledge_external_retry") is not True: raise Fault("external_retry_acknowledgement_required")
+        launch(rid,lambda run_id: service.resume(run_id,acknowledge_external_retry=d.get("acknowledge_external_retry") is True))
         return jsonify(id=rid),202
     @app.post("/api/runs/<rid>/cancel")
     def cancel(rid): body(set()); service.runner.cancel(rid); return jsonify(status=service.store.run(rid)["status"])
     @app.post("/api/runs/<rid>/review")
-    def review(rid): return jsonify(status=service.review(rid,body({"review_request_id","revision","actor","decision","comments","target","omissions","acknowledged_omission_ids","acknowledged_conflict_ids","expected_block"},{"review_request_id","actor","decision"}))["status"])
+    def review(rid):
+        payload=body({"review_request_id","revision","actor","decision","comments","target","omissions","acknowledged_omission_ids","acknowledged_conflict_ids","expected_block"},{"review_request_id","actor","decision"})
+        prior=service.store.review_event(rid,payload["review_request_id"])
+        run=service.review(rid,payload)
+        if run["status"]=="pending" and not prior: launch(rid)
+        return jsonify(status=run["status"])
     @app.delete("/api/runs/<rid>")
-    def delete(rid): service.delete(rid); return jsonify(deleted=True)
+    def delete(rid):
+        with pending_lock:
+            if rid in pending and not pending[rid].done(): raise Fault("run_active")
+            service.delete(rid)
+        return jsonify(deleted=True)
     @app.get("/api/runs/<rid>/download/<path:relpath>")
     def download(rid,relpath):
         path=service.store.download_path(rid,relpath); return send_file(path,as_attachment=True,download_name=path.name)

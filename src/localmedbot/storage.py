@@ -161,6 +161,39 @@ class Store:
         with self.db() as db: self._bump(db,run["id"],run)
         if self.run_dir(run["id"]).exists(): self.rebuild_derived(run["id"])
 
+    def stop_execution(self,rid,code,reference=None,expected_revision=None):
+        """Atomically stop an orphaned execution without clobbering a newer state."""
+        with self.db() as db:
+            row=db.execute("SELECT document,inspection_revision FROM runs WHERE id=?",(rid,)).fetchone()
+            if not row: return False
+            run=json.loads(row[0])
+            if run.get("status") not in {"pending","running"} or (expected_revision is not None and int(row[1])!=expected_revision): return False
+            stage=next((n for n in run.get("snapshot",{}).get("workflow",{}).get("nodes",[]) if run.get("nodes",{}).get(n["id"]) in {"running","retrying"}),None)
+            node=stage["id"] if stage else None; attempt=run.get("attempts",{}).get(node) if node else None
+            uncertain=db.execute("SELECT 1 FROM model_calls WHERE run_id=? AND json_extract(document,'$.status') IN ('dispatching','dispatch_unknown') LIMIT 1",(rid,)).fetchone()
+            uncertain=bool(uncertain or db.execute("SELECT 1 FROM physical_calls WHERE run_id=? AND json_extract(document,'$.status') IN ('dispatching','dispatch_unknown') LIMIT 1",(rid,)).fetchone())
+            if uncertain: code="external_response_unknown"
+            error=present_error({"code":code},stage=node,attempt=attempt,diagnostic_reference=reference)
+            if uncertain:
+                rows=db.execute("SELECT request_id,document FROM model_calls WHERE run_id=?",(rid,)).fetchall()
+                for call_row in rows:
+                    doc=json.loads(call_row[1])
+                    physical_unknown=db.execute("SELECT 1 FROM physical_calls WHERE request_id=? AND json_extract(document,'$.status') IN ('dispatching','dispatch_unknown') LIMIT 1",(call_row[0],)).fetchone()
+                    if physical_unknown or doc.get("status")=="dispatching":
+                        doc["status"]="dispatch_unknown"; doc["error"]=error
+                        db.execute("UPDATE model_calls SET document=? WHERE request_id=?",(encode(doc),call_row[0]))
+            run["status"]="failed"; run["error"]={**error,"recovery_action":"explicit_external_retry" if uncertain else "resume"}; run["block"]=None
+            if node:
+                run["nodes"][node]="failed"
+                step=db.execute("SELECT document FROM step_attempts WHERE run_id=? AND node_id=? AND attempt=?",(rid,node,attempt)).fetchone()
+                if step:
+                    doc=json.loads(step[0]); doc["state"]="failed"; doc["error"]=error
+                    db.execute("UPDATE step_attempts SET document=? WHERE run_id=? AND node_id=? AND attempt=?",(encode(doc),rid,node,attempt))
+            db.execute("INSERT INTO events(run,time,kind,data) VALUES(?,?,?,?)",(rid,time.time(),"execution_stopped",encode({"code":code,"diagnostic_reference":reference,"node_id":node,"attempt":attempt})))
+            self._bump(db,rid,run)
+        self.rebuild_derived(rid)
+        return True
+
     def run(self,rid):
         with self.db() as db: row=db.execute("SELECT document,inspection_revision FROM runs WHERE id=?",(rid,)).fetchone()
         if not row: raise Fault("run_not_found")
@@ -474,11 +507,13 @@ class Store:
         all_artifacts=[]; active={}
         for row in ars:
             path=self.run_dir(rid)/row[2]
-            try: payload=json.loads(path.read_text(encoding="utf-8"))
-            except (OSError,ValueError): raise Fault("storage_integrity_failure",str(path)) from None
+            try: payload=json.loads(path.read_text(encoding="utf-8")); unavailable=False
+            except (OSError,ValueError):
+                payload=None; unavailable=True
             item={"id":row[0],"revision":row[1],"payload":payload,"metadata":json.loads(row[3]),"path":str(path)}; all_artifacts.append(item)
+            if unavailable: item["unavailable"]="storage_integrity_failure"
             if run.get("active",{}).get(row[0])==row[1]: active[row[0]]=item
-        return {"run_id":rid,"inspection_revision":run["inspection_revision"],"run":run,"artifacts":active,"artifact_history":all_artifacts,"events":[{"id":r[0],"time":r[1],"kind":r[2],"data":json.loads(r[3])} for r in events],"step_attempts":[json.loads(r[0]) for r in attempts],"model_calls":[json.loads(r[0]) for r in requests],"physical_calls":[json.loads(r[0]) for r in physical],"repairs":[json.loads(r[0]) for r in repairs],"semantic_revisions":[json.loads(r[0]) for r in semantic],"operations":[json.loads(r[0]) for r in ops],"tool_calls":[json.loads(r[0]) for r in tools]}
+        return {"run_id":rid,"inspection_revision":run["inspection_revision"],"run":run,"artifacts":active,"artifact_history":all_artifacts,"inspection_degraded":any(a.get("unavailable") for a in all_artifacts),"events":[{"id":r[0],"time":r[1],"kind":r[2],"data":json.loads(r[3])} for r in events],"step_attempts":[json.loads(r[0]) for r in attempts],"model_calls":[json.loads(r[0]) for r in requests],"physical_calls":[json.loads(r[0]) for r in physical],"repairs":[json.loads(r[0]) for r in repairs],"semantic_revisions":[json.loads(r[0]) for r in semantic],"operations":[json.loads(r[0]) for r in ops],"tool_calls":[json.loads(r[0]) for r in tools]}
 
     def rebuild_derived(self,rid):
         folder=self.run_dir(rid)
@@ -581,6 +616,10 @@ class Store:
         elif marker.exists(): marker.unlink()
         for run in self.runs():
             if self.run_dir(run["id"]).exists(): self.rebuild_derived(run["id"])
+        # The writer lock excludes live workers from other processes at startup.
+        for run in self.runs():
+            if run.get("status") in {"pending","running"}:
+                self.stop_execution(run["id"],"execution_interrupted")
 
     def download_path(self,rid,rel):
         base=self.run_dir(rid).resolve(); path=(base/rel).resolve()
@@ -598,7 +637,7 @@ class Store:
 
     def delete_run(self,rid):
         run=self.run(rid)
-        if run.get("status") in {"running","waiting_model"}: raise Fault("run_active")
+        if run.get("status") in {"pending","running","waiting_model"}: raise Fault("run_active")
         with self.db() as db:
             for table,col in [("artifacts","run"),("events","run"),("step_attempts","run_id"),("model_calls","run_id"),("physical_calls","run_id"),("operations","run_id"),("repairs","run_id"),("semantic_revisions","run_id"),("tool_calls","run_id"),("review_events","run_id")]: db.execute(f"DELETE FROM {table} WHERE {col}=?",(rid,))
             db.execute("DELETE FROM active_corpora WHERE scope=?",(rid,)); db.execute("DELETE FROM corpora WHERE scope=?",(rid,)); db.execute("DELETE FROM runs WHERE id=?",(rid,))

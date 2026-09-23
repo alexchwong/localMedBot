@@ -17,6 +17,12 @@ from .paths import RuntimePaths, default_execution_config
 from .usage import aggregate_usage
 from .errors import present_error
 from .audit import audit_json,audit_fault,repair_feedback
+from .observability import project_execution
+
+def run_title(value):
+    if value is None or value=="": return None
+    if not isinstance(value,str) or len(value)>120 or any(ord(c)<32 or ord(c)==127 for c in value) or not value.strip(): raise Fault("invalid_input")
+    return value.strip()
 
 def _source_version(root):
     try:
@@ -75,7 +81,9 @@ class Service:
         if input_mode in {"advanced","copied"}:
             return deepcopy(data),None,{"task_input":"user_supplied" if input_mode=="advanced" else "unknown","evidence":{},"revision_feedback":{}}
         raise Fault("input_mode_invalid")
-    def start(self,workflow_id,profile_id,input_mode="free_text",input_data=None,profile_overrides=None,guideline_selection=None,example=None,developer=False,derived_from_run_id=None,origin_override=None,retry_overrides=None):
+    def start(self,workflow_id,profile_id,input_mode="free_text",input_data=None,profile_overrides=None,guideline_selection=None,example=None,developer=False,derived_from_run_id=None,origin_override=None,retry_overrides=None,title=None):
+        title=run_title(title)
+        if title and any(secret and secret in title for secret in self.vault.known_values()): raise Fault("invalid_input")
         snap=self.load(workflow_id); profile=self.profiles.resolve(profile_id,profile_overrides or {},workflow_id=workflow_id,runnable=True)
         if retry_overrides and not developer: raise Fault("developer_disabled")
         self.store.set_preference("selected_profile:"+workflow_id,profile_id)
@@ -93,7 +101,7 @@ class Service:
         elif profile["executor"]=="recorded": raise Fault("recorded_input_mismatch")
         if workflow_id=="guideline_qa":
             sel=guideline_selection or {"set_id":"demo","selector":"default"}; resolved=self.guidelines.resolve(sel["set_id"],sel.get("selector","default"),developer=developer); corpora=[resolved["corpus_id"]]; snap["guideline_selection"]=resolved; origins["evidence"][resolved["corpus_id"]]=resolved["content_origin"]
-        return self.runner.create(snap,value,profile,corpora,origins=origins,derived_from_run_id=derived_from_run_id,retry_overrides=retry_overrides)
+        return self.runner.create(snap,value,profile,corpora,origins=origins,derived_from_run_id=derived_from_run_id,retry_overrides=retry_overrides,title=title)
 
     def _finalize_guideline_import(self,rid):
         run=self.store.run(rid); meta=run.get("guideline_import")
@@ -136,6 +144,7 @@ class Service:
     def inspect(self,rid,developer=False):
         result=self.store.inspection_snapshot(rid); run=result["run"]
         result["usage"]=aggregate_usage(result["model_calls"],result["physical_calls"],result["semantic_revisions"])
+        result["execution"]=project_execution(result,developer=developer)
         result["paths"]={"run_folder":str(self.store.run_dir(rid).resolve()),"state_root":str(self.paths.state_root),"runs_root":str(self.paths.runs_root)}
         stored=run.get("error")
         if isinstance(stored,dict) and stored:
@@ -148,8 +157,8 @@ class Service:
             result["current_error"]=None
         if run.get("waiting_request_id") and developer: result["handoff"]=self.model_steps.handoff(rid)
         return result
-    def resume(self,rid):
-        run=self.runner.resume(rid)
+    def resume(self,rid,acknowledge_external_retry=False):
+        run=self.runner.resume(rid,acknowledge_external_retry=acknowledge_external_retry)
         return self._finalize_guideline_import(rid) if run.get("status")=="completed" and run.get("guideline_import") else run
     def self_handoff(self,rid): return self.model_steps.handoff(rid)
     def self_submit(self,rid,envelope):

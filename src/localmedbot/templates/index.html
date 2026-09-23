@@ -22,6 +22,7 @@
     <section class="panel composer" aria-labelledby="compose-title">
       <div class="panel-head"><div><p class="eyebrow">CLINICAL WORKSPACE</p><h1 id="compose-title">Create communication</h1></div></div>
       <label>Workflow<select id="workflow" data-testid="application"></select></label>
+      <label>Run title (optional; do not include patient identifiers)<input id="run-title-input" maxlength="120"></label>
       <div id="destination" class="destination" role="status"></div>
       <label class="mode-label">Input mode<select id="input-mode"><option value="free_text">Free text</option><option value="demo">Recorded demonstration</option><option id="advanced-option" value="advanced" hidden>Advanced JSON</option></select></label>
       <div id="demo-fields" hidden><label>Recorded example<select id="example"></select></label><p class="hint">A recorded demonstration is explicit and never substitutes for free-text execution.</p></div>
@@ -51,35 +52,48 @@
     </section>
 
     <section class="panel run-panel" aria-labelledby="run-title">
+      <div class="run-summary">
       <div class="result-head">
         <div><p class="eyebrow">CURRENT RUN</p><h1 id="result-title">Ready</h1></div>
         <span id="status" data-testid="status" data-state="ready" class="status">Ready</span>
       </div>
       <div id="activity" class="activity" aria-live="polite">No run selected.</div>
+      <div id="live-run" class="live-run" role="status"></div>
+      <div class="history-selectors" aria-label="Run history"><label>Workflow<select id="run-workflow-filter"></select></label><label>Date<select id="run-date-filter"></select></label><label>Run title<select id="run-select"></select></label></div>
+      <p id="last-refresh" class="hint"></p>
       <div id="provenance" class="meta-line"></div>
+      <div id="progress-label" class="hint"></div>
+      <progress id="progress-rail" max="1" value="0" aria-label="Model stages reached"></progress>
       <div id="outcomes" class="hint"></div>
       <div id="steps" class="steps" aria-label="Workflow stages"></div>
-      <div id="check-findings"></div>
-      <div id="facts-panel"></div>
-      <div id="conflicts-panel"></div>
-      <div id="review" class="review-card" hidden>
+      </div>
+      <div class="inspection-selectors"><label>Model stage<select id="model-stage"></select></label><label>Retry / call #<select id="model-call"></select></label></div>
+      <div class="execution-tabs" role="tablist" aria-label="Run inspection"><button id="tab-input" type="button" role="tab" aria-controls="model-input-panel">Model input</button><button id="tab-output" type="button" role="tab" aria-controls="model-output-panel">Model output</button><button id="tab-retries" type="button" role="tab" aria-controls="retry-history">Repairs &amp; retries</button><button id="tab-details" type="button" role="tab" aria-controls="run-details">Run details</button></div>
+      <div id="model-input-panel" class="inspection-pane" role="tabpanel" tabindex="0"><h2>Input sent to model</h2><div id="model-input"></div></div>
+      <div id="model-output-panel" class="inspection-pane" role="tabpanel" tabindex="0" hidden><h2>Recorded model response</h2><div id="model-output"></div><div id="model-validation" class="model-validation" role="status"></div></div>
+      <div id="retry-history" class="inspection-pane" role="tabpanel" hidden><label>Repair or revision<select id="retry-select"></select></label><div id="retry-detail"></div></div>
+      <div id="run-details" class="inspection-pane" role="tabpanel" hidden><div id="model-diagnostics"></div><div id="check-findings"></div><div id="facts-panel"><h2>Optional omission editing</h2><div id="facts-content"></div><p id="omission-help" class="hint">Select facts and give a reason for each. Changes are not applied until you request a draft revision. Approving acknowledges omissions already applied to the draft; it does not apply these selections.</p><button id="apply-omissions" class="secondary" type="button" disabled>Request draft revision with selected omissions</button></div><div id="conflicts-panel"></div></div>
+      <div class="actions"><button id="resume" class="secondary" hidden type="button">Retry after correction</button><button id="copy-legacy" class="secondary" hidden type="button">Use input in a new run</button><button id="delete-run" class="quiet" hidden type="button">Delete run</button></div>
+    </section>
+    <section class="panel rhs" aria-label="Selected run"><div class="rhs-tabs" role="tablist"><button class="secondary" id="rhs-input-tab" type="button">Input</button><button class="secondary active" id="rhs-output-tab" type="button">Output</button><button class="secondary" id="rhs-review-tab" type="button" disabled>Review</button></div><div id="run-input" hidden></div><div id="run-output"><article id="output" data-testid="output" class="output"></article><div id="citations" class="citations"></div><details id="source-panel" hidden><summary>Source passage</summary><pre id="source-content"></pre></details></div><div id="review" class="review-card" hidden>
         <h2>Final human review</h2>
+        <p id="review-revision" class="hint"></p>
         <p class="hint">Approval applies only to the displayed current revision. Mandatory failed checks cannot be approved away.</p>
         <div class="compact-row"><label>Reviewer<input id="actor"></label><label>Revision target<select id="review-target"></select></label></div>
         <label>Comments<textarea id="comments" rows="2"></textarea></label>
         <div id="omissions"></div><div id="conflict-acks"></div>
+        <label id="omission-ack-label" class="check" hidden><input id="omission-ack" type="checkbox"> I acknowledge the omissions already applied to this draft.</label>
         <div class="actions"><button id="approve" type="button">Approve displayed revision</button><button id="revise" class="secondary" type="button">Request revision</button><button id="reject" class="quiet" type="button">Reject</button></div>
       </div>
-      <div class="actions"><button id="resume" class="secondary" hidden type="button">Retry after correction</button><button id="copy-legacy" class="secondary" hidden type="button">Use input in a new run</button><button id="delete-run" class="quiet" hidden type="button">Delete run</button></div>
-      <details><summary>Recent runs</summary><div id="runs" class="runs"></div></details>
+      <div id="review-output" hidden></div>
     </section>
-    <section class="panel rhs" aria-label="Selected run"><div class="rhs-tabs" role="tablist"><button class="secondary" id="rhs-input-tab" type="button">Input</button><button class="secondary active" id="rhs-output-tab" type="button">Output</button></div><pre id="run-input" hidden></pre><div id="run-output"><article id="output" data-testid="output" class="output"></article><div id="citations" class="citations"></div><details id="source-panel" hidden><summary>Source passage</summary><pre id="source-content"></pre></details></div></section>
   </section>
 
   <section id="developer-workspace" class="workspace developer-layout" hidden>
     <section class="panel dev-shell">
       <div class="result-head"><div><p class="eyebrow">DEVELOPER WORKSPACE</p><h1>Workflow development</h1></div><span class="status">Developer access</span></div>
-        <details><summary>Run-wide retry overrides</summary><div class="compact-row"><label>Output-repair retries<input id="repair-override" type="number" min="0" placeholder="inherit"></label><label>Semantic-revision retries<input id="semantic-override" type="number" min="0" placeholder="inherit"></label></div><p class="hint">Blank inherits. Zero disables that retry class. Values are frozen into the run.</p></details>
+      <label>Run title (optional; do not include patient identifiers)<input id="dev-run-title" maxlength="120"></label>
+        <details><summary>Execution settings · run-wide retry overrides</summary><div class="compact-row"><label>Output-repair retries<input id="repair-override" type="number" min="0" placeholder="inherit"></label><label>Semantic-revision retries<input id="semantic-override" type="number" min="0" placeholder="inherit"></label></div><p class="hint">Blank inherits. Zero disables that retry class. Values are frozen into the run.</p></details>
       <div class="dev-tabs" role="tablist"><button id="dev-tab-full" class="secondary active" type="button">Full workflow</button><button id="dev-tab-step" class="secondary" type="button">One-step tester</button><button id="dev-tab-guidelines" class="secondary" type="button">Guideline tools</button></div>
       <section id="dev-full" class="dev-pane"><p>Run a full workflow with developer inspection enabled.</p><label>Workflow<select id="dev-workflow"></select></label><label>Provider / model<select id="dev-profile"></select></label><label>Input mode<select id="dev-input-mode"><option value="free_text">Free text</option><option value="demo">Recorded demonstration</option><option value="advanced">Advanced JSON</option></select></label><div id="dev-demo"><label>Recorded example<select id="dev-example"></select></label></div><label id="dev-purpose-field">Purpose<select id="dev-purpose"></select></label><label id="dev-notes-field">Clinical notes<textarea id="dev-notes" rows="7"></textarea></label><label id="dev-question-field" hidden>Question<textarea id="dev-question" rows="5"></textarea></label><label id="dev-advanced-field" hidden>Advanced workflow input<textarea id="dev-advanced-input" rows="8" spellcheck="false">{}</textarea></label><div id="dev-guideline-fields" hidden><label>Guideline set<select id="dev-guideline-set"></select></label><label>Version<select id="dev-guideline-version"></select></label></div><button id="dev-generate" type="button">Run full workflow</button></section>
       <section id="dev-step" class="dev-pane" hidden>

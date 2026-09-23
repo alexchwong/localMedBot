@@ -30,6 +30,11 @@ _PRESENTATIONS={
     "legacy_data_relocation_required":("Legacy .localmedbot data was found and has not been relocated.","Run the explicit offline relocation command before normal startup."),
     "relocation_incomplete":("A previous data relocation did not complete.","Resume the same relocation operation; do not use the half-migrated destination as runtime state."),
     "runtime_version_mismatch":("This historical run was created by a different product version and is read-only.","Inspect it historically or start a new run with the current version."),
+    "execution_interrupted":("Execution stopped when the application was interrupted.","Resume to continue from the recorded state, or inspect the recorded calls and start a new run."),
+    "execution_stopped":("Execution stopped unexpectedly.","Resume to continue from the recorded state, or use the diagnostic reference when inspecting logs before starting a new run."),
+    "execution_dispatch_failed":("The execution worker could not start, so no model request was made.","Resume to start the run again, or check the local runtime and start a new run."),
+    "external_retry_acknowledgement_required":("The previous provider request may have completed, so repeating it needs explicit acknowledgement.","Confirm that duplicate execution and billing are acceptable before retrying."),
+    "run_not_resumable":("This run has no safe continuation path.","Inspect the run and start a new run if necessary."),
 }
 
 
