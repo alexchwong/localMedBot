@@ -20,7 +20,7 @@ nodes:
   module: render
   needs: [support.final]
   inputs: {data: artifacts.support.final}
-  config: {template: output.md, title: Guideline answer}
+  config: {template: output.md, title: Guideline answer, user_citations: true}
 - id: output_check
   module: content_check
   needs: [output]

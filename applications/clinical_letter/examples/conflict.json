@@ -1,6 +1,6 @@
 {
   "input": {
-    "purpose": "Update the referring clinician",
+    "purpose": "letter_to_gp",
     "sources": [
       {
         "id": "record",
@@ -154,25 +154,31 @@
     ],
     "draft": [
       {
-        "title": "Clinical letter — synthetic example",
-        "claims": [
+        "document": "Dear GP,\n\nMedication A was documented as stopped at the earlier visit. Medication A was later documented as continuing; the discrepancy is unresolved. Follow-up review is planned in two weeks.\n\nYours sincerely",
+        "provenance": [
           {
-            "id": "F1",
-            "text": "Medication A was documented as stopped at the earlier visit.",
+            "passage": "Medication A was documented as stopped at the earlier visit.",
+            "fact_ids": [
+              "F1"
+            ],
             "evidence_refs": {
               "$input": "source.facts.0.evidence_refs"
             }
           },
           {
-            "id": "F2",
-            "text": "Medication A was later documented as continuing; the discrepancy is unresolved.",
+            "passage": "Medication A was later documented as continuing; the discrepancy is unresolved.",
+            "fact_ids": [
+              "F2"
+            ],
             "evidence_refs": {
               "$input": "source.facts.1.evidence_refs"
             }
           },
           {
-            "id": "F3",
-            "text": "Follow-up review is planned in two weeks.",
+            "passage": "Follow-up review is planned in two weeks.",
+            "fact_ids": [
+              "F3"
+            ],
             "evidence_refs": {
               "$input": "source.facts.2.evidence_refs"
             }
@@ -180,25 +186,31 @@
         ]
       },
       {
-        "title": "Clinical letter — synthetic example",
-        "claims": [
+        "document": "Dear GP,\n\nMedication A was documented as stopped at the earlier visit. Medication A was later documented as continuing; the discrepancy is unresolved. Follow-up review is planned in two weeks.\n\nYours sincerely",
+        "provenance": [
           {
-            "id": "F1",
-            "text": "Medication A was documented as stopped at the earlier visit.",
+            "passage": "Medication A was documented as stopped at the earlier visit.",
+            "fact_ids": [
+              "F1"
+            ],
             "evidence_refs": {
               "$input": "source.facts.0.evidence_refs"
             }
           },
           {
-            "id": "F2",
-            "text": "Medication A was later documented as continuing; the discrepancy is unresolved.",
+            "passage": "Medication A was later documented as continuing; the discrepancy is unresolved.",
+            "fact_ids": [
+              "F2"
+            ],
             "evidence_refs": {
               "$input": "source.facts.1.evidence_refs"
             }
           },
           {
-            "id": "F3",
-            "text": "Follow-up review is planned in two weeks.",
+            "passage": "Follow-up review is planned in two weeks.",
+            "fact_ids": [
+              "F3"
+            ],
             "evidence_refs": {
               "$input": "source.facts.2.evidence_refs"
             }
@@ -206,25 +218,31 @@
         ]
       },
       {
-        "title": "Clinical letter — synthetic example",
-        "claims": [
+        "document": "Dear GP,\n\nMedication A was documented as stopped at the earlier visit. Medication A was later documented as continuing; the discrepancy is unresolved. Follow-up review is planned in two weeks.\n\nYours sincerely",
+        "provenance": [
           {
-            "id": "F1",
-            "text": "Medication A was documented as stopped at the earlier visit.",
+            "passage": "Medication A was documented as stopped at the earlier visit.",
+            "fact_ids": [
+              "F1"
+            ],
             "evidence_refs": {
               "$input": "source.facts.0.evidence_refs"
             }
           },
           {
-            "id": "F2",
-            "text": "Medication A was later documented as continuing; the discrepancy is unresolved.",
+            "passage": "Medication A was later documented as continuing; the discrepancy is unresolved.",
+            "fact_ids": [
+              "F2"
+            ],
             "evidence_refs": {
               "$input": "source.facts.1.evidence_refs"
             }
           },
           {
-            "id": "F3",
-            "text": "Follow-up review is planned in two weeks.",
+            "passage": "Follow-up review is planned in two weeks.",
+            "fact_ids": [
+              "F3"
+            ],
             "evidence_refs": {
               "$input": "source.facts.2.evidence_refs"
             }

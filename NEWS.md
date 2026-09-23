@@ -1,5 +1,13 @@
 # Change history
 
+## 0.1.3 — unreleased; not releaseable
+
+- Unify Clinical and Developer workspace selection with backend session mode, and separate workflow input, execution inspection and tabbed frozen run input/output into three browser panes.
+- Configure Clinical Letter purposes in workflow assets; freeze the selected genre instructions and draft the actual document with internal passage/fact provenance and independent checking. Internal clinical-note references no longer render as citations; Guideline QA retains external citations.
+- Provide readable structured error and verification details with Developer JSON/YAML presentation, and launch the quiet local browser server automatically unless `--no-browser` is specified.
+
+Release permission remains false; preview verification does not grant publication or clinical validation.
+
 ## 0.1.2 — unreleased; not releaseable
 
 - Rework the browser into primary Clinical and Developer workspaces with compact model settings, readable live run state, final revision-specific review, deliberate omission editing and an ordinary run/attempt/call inspector.

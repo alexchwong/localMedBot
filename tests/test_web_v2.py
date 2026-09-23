@@ -32,7 +32,7 @@ class WebApiTests(unittest.TestCase):
         self.assertNotIn(secret,json.dumps(self.client.get('/api/model-profiles?workflow_id=clinical_letter').get_json()))
     def test_developer_self_run_and_handoff(self):
         self.post('/api/developer-mode',{'enabled':True})
-        d={'workflow_id':'clinical_letter','profile_id':'clinical_letter.self.default','input_mode':'free_text','input':{'notes':'Synthetic note.','purpose':'Update'}}
+        d={'workflow_id':'clinical_letter','profile_id':'clinical_letter.self.default','input_mode':'free_text','input':{'notes':'Synthetic note.','purpose':'letter_to_gp'}}
         r=self.post('/api/runs',d); self.assertEqual(r.status_code,202); rid=r.get_json()['id']
         for _ in range(100):
             state=self.client.get('/api/runs/'+rid).get_json()

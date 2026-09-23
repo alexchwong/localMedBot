@@ -63,6 +63,17 @@ def _reason_contract_validator(inputs):
                 expected={ref_key(r) for r in fmap[cid].get("evidence_refs",[])}; received={ref_key(r) for r in claim.get("evidence_refs",[]) if isinstance(r,dict) and "corpus_id" in r and "evidence_id" in r}
                 if received!=expected:
                     findings.append(_finding("contract.source_reference_changed",f"/claims/{i}/evidence_refs","The draft changed the source linkage for this fact.","Preserve the fact's supplied evidence references exactly.",expected=[list(x) for x in sorted(expected)],received=[list(x) for x in sorted(received)]))
+        if "document" in value and isinstance(inputs.get("source"),dict) and "facts" in inputs["source"]:
+            facts={f["id"]:f for f in inputs["source"]["facts"]}
+            for i,row in enumerate(value.get("provenance",[])):
+                if row["passage"] not in value["document"]:
+                    findings.append(_finding("contract.passage_missing",f"/provenance/{i}/passage","Mapped passage is absent from document.","Map a passage actually present in the drafted document."))
+                ids=row["fact_ids"]
+                if any(fid not in facts for fid in ids):
+                    findings.append(_finding("contract.unknown_fact_reference",f"/provenance/{i}/fact_ids","Unknown extracted fact.","Reference only supplied facts.")); continue
+                expected={ref_key(r) for fid in ids for r in facts[fid]["evidence_refs"]}
+                if {ref_key(r) for r in row["evidence_refs"]}!=expected:
+                    findings.append(_finding("contract.source_reference_changed",f"/provenance/{i}/evidence_refs","Source linkage changed.","Preserve the source references of every mapped fact."))
         return findings
     return validate_result
 
@@ -272,6 +283,19 @@ class ContentCheck(Module):
             if actual-set(fmap): raise Fault("reference_invalid","unknown_fact")
             for c in claims:
                 if c["id"] in fmap and set(map(ref_key,c.get("evidence_refs",[])))!=set(map(ref_key,fmap[c["id"]].get("evidence_refs",[]))): raise Fault("reference_invalid","source_changed")
+        if config.get("document_coverage"):
+            facts=inputs["source"]["facts"]; fmap={f["id"]:f for f in facts}; policy=inputs.get("omission_policy",{}); omit=set(policy.get("omitted_fact_ids",[]))
+            if omit and (policy.get("extraction_revision")!=context.run["active"].get("facts") or not omit<=set(fmap) or set(policy.get("reasons",{}))!=omit): raise Fault("reference_invalid","stale_omission_policy")
+            mapped=set()
+            for row in target["provenance"]:
+                if row["passage"] not in target["document"]: raise Fault("reference_invalid","passage_missing")
+                ids=set(row["fact_ids"])
+                if not ids<=set(fmap): raise Fault("reference_invalid","unknown_fact")
+                expected={ref_key(ref) for fid in ids for ref in fmap[fid]["evidence_refs"]}
+                if {ref_key(ref) for ref in row["evidence_refs"]}!=expected: raise Fault("reference_invalid","source_changed")
+                mapped.update(ids)
+            if set(fmap)-omit-mapped: findings.append({"code":"omitted_fact","severity":"error","ids":sorted(set(fmap)-omit-mapped)})
+            if mapped & omit: findings.append({"code":"forbidden_omitted_fact_included","severity":"error","ids":sorted(mapped & omit)})
         if config.get("accepted_only"):
             source=inputs["source"]; accepted={c["id"] for c in source.get("accepted",[])}; rendered=set(target.get("claim_ids",[])); withheld=set(source.get("withheld_claim_ids",[]))
             if rendered!=accepted or rendered&withheld: raise Fault("reference_invalid","unaccepted_rendered_claim")
@@ -333,6 +357,8 @@ class EvidenceFinalize(Module):
 class Renderer(Module):
     def execute(self,context,inputs,config):
         data=inputs["data"]; citations=[]; sections=[]; claim_ids=[]; conflict_ids=[]
+        if config.get("document"):
+            return ModuleResult({"text":data["document"],"sections":[],"claim_ids":sorted({fid for row in data["provenance"] for fid in row["fact_ids"]}),"citations":[],"conflict_ids":[],"unresolved":[],"provenance":data["provenance"],"data_origin":context.run.get("data_origin","unknown"),"origins":context.run.get("origins",{}),"executor":context.run["profile"]["executor"],"evidence_outcome":None})
         def cite(refs):
             nums=[]
             for ref in refs:
@@ -342,11 +368,11 @@ class Renderer(Module):
             return nums
         claims=data.get("accepted",data.get("claims",[]))
         for claim in claims:
-            nums=cite(claim.get("evidence_refs",[])); sections.append({"kind":"claim","id":claim["id"],"text":claim["text"],"citations":nums}); claim_ids.append(claim["id"])
+            nums=cite(claim.get("evidence_refs",[])) if config.get("user_citations",True) else []; sections.append({"kind":"claim","id":claim["id"],"text":claim["text"],"citations":nums}); claim_ids.append(claim["id"])
         for conflict in data.get("conflicts",[]):
             conflict_ids.append(conflict["id"]); alts=[]
             for alt in conflict["alternatives"]:
-                nums=cite(alt["evidence_refs"]); alts.append({"id":alt["id"],"text":alt["statement"],"applicability":alt.get("applicability",""),"citations":nums})
+                nums=cite(alt["evidence_refs"]) if config.get("user_citations",True) else []; alts.append({"id":alt["id"],"text":alt["statement"],"applicability":alt.get("applicability",""),"citations":nums})
             sections.append({"kind":"conflict","id":conflict["id"],"topic":conflict.get("topic",""),"alternatives":alts})
         for item in data.get("unresolved",[]): sections.append({"kind":"unresolved","id":item.get("claim_id"),"text":item.get("reason","")})
         lines=[]

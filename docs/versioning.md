@@ -12,7 +12,7 @@ Release permission is fail-closed and separate from changing the product version
 
 ## Independent persisted contracts
 
-- Clinical-letter workflow asset version: **2**.
+- Clinical-letter workflow asset version: **3** (configured purposes and model-authored document with passage provenance).
 - Guideline-QA workflow asset version: **2**.
 - Storage schema version: **1**.
 - Run contract version: **1**.

@@ -9,8 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def mount_browser_ui(page, app, repo_root: Path):
-    client=app.test_client()
+def mount_browser_ui(page, app, repo_root: Path, client=None):
+    client=client or app.test_client()
 
     def request(payload):
         path=str(payload.get("path") or "/")
@@ -48,6 +48,7 @@ window.fetch=async function(path,options){
     html=html.replace('<script src="/static/app.js" defer></script>',"")
     html=html.replace("</body>",bridge+"<script>"+javascript+"</script></body>")
     page.set_content(html,wait_until="load")
-    page.wait_for_selector("#workflow")
+    page.wait_for_selector("#workflow",state="attached")
     page.wait_for_function("()=>document.querySelector('#workflow').options.length>0",timeout=10000)
+    page.wait_for_function("()=>!document.querySelector('#workspace-selector').disabled",timeout=10000)
     return client

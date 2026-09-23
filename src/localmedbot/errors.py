@@ -5,6 +5,7 @@ from copy import deepcopy
 
 _PRESENTATIONS={
     "invalid_input":("The supplied input is incomplete or invalid.","Review the highlighted input fields and try again."),
+    "invalid_purpose":("The selected document purpose is not configured for this workflow.","Choose a supported purpose from the workflow selector."),
     "input_too_large":("The supplied input exceeds the configured size limit.","Shorten the input without removing clinically required facts, then start a new run."),
     "credential_missing":("A credential required by the selected provider is missing.","Open model settings, provide the credential, and retry the request."),
     "authentication_rejected":("The model provider rejected the supplied credential.","Check the credential in model settings and retry after correcting it."),

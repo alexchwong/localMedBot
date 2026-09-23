@@ -1,4 +1,4 @@
-version: 2
+version: 3
 nodes:
 - id: records
   module: ingest
@@ -23,22 +23,22 @@ nodes:
   module: reason
   needs: [facts_check]
   input_schema: draft.input.schema.json
-  inputs: {source: artifacts.facts, task: run.input, omission_policy: run.omission_policy}
+  inputs: {source: artifacts.facts, task: run.input, omission_policy: run.omission_policy, genre: run.snapshot.selected_purpose}
   config: {prompt: draft.md, role: writing}
-  schema: claims.schema.json
+  schema: document.schema.json
 - id: draft_check
   module: content_check
   needs: [draft]
   input_schema: draft_check.input.schema.json
-  inputs: {target: artifacts.draft, source: artifacts.facts, task: run.input, omission_policy: run.omission_policy}
-  config: {prompt: check.md, coverage: true, role: review}
+  inputs: {target: artifacts.draft, source: artifacts.facts, task: run.input, omission_policy: run.omission_policy, genre: run.snapshot.selected_purpose}
+  config: {prompt: check.md, document_coverage: true, role: review}
   schema: check.schema.json
   review: {target: draft}
 - id: output
   module: render
   needs: [draft_check]
   inputs: {data: artifacts.draft}
-  config: {template: output.md}
+  config: {template: output.md, document: true, user_citations: false}
 - id: approval
   module: human_review
   needs: [output]

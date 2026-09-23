@@ -55,7 +55,7 @@ class AuditAndRepairTests(Base):
             with self.subTest(node=node):
                 doc=self.captured(node)
                 if node=='draft':
-                    valid={'title':'Fixture letter','claims':[{'id':f['id'],'text':f['text'],'evidence_refs':f['evidence_refs']} for f in doc['resolved_inputs']['source']['facts']]}
+                    valid={'document':' '.join(f['text'] for f in doc['resolved_inputs']['source']['facts']),'provenance':[{'passage':f['text'],'fact_ids':[f['id']],'evidence_refs':f['evidence_refs']} for f in doc['resolved_inputs']['source']['facts']]}
                 else:
                     valid={'status':'pass','findings':[]}
                 tape=self.tape(doc,['{broken',json.dumps(valid)])
@@ -69,7 +69,7 @@ class AuditAndRepairTests(Base):
 
     def test_final_allowed_output_repair_succeeds_and_identical_failures_exhaust_exactly(self):
         doc=self.captured('draft')
-        valid={'title':'Fixture letter','claims':[{'id':f['id'],'text':f['text'],'evidence_refs':f['evidence_refs']} for f in doc['resolved_inputs']['source']['facts']]}
+        valid={'document':' '.join(f['text'] for f in doc['resolved_inputs']['source']['facts']),'provenance':[{'passage':f['text'],'fact_ids':[f['id']],'evidence_refs':f['evidence_refs']} for f in doc['resolved_inputs']['source']['facts']]}
         tape=self.tape(doc,['{}','{}','{}',json.dumps(valid)])
         rid=self.s.run_step('clinical_letter','draft',doc,'clinical_letter.recorded.default',tape=tape,developer=True,retry_overrides={'output_repair_retries':3})
         done=self.s.runner.advance(rid); self.assertEqual(done['status'],'completed'); self.assertEqual(done['attempts']['draft'],1)
@@ -94,7 +94,7 @@ class AuditAndRepairTests(Base):
         self.assertEqual(limits['output_repair_by_node']['facts'],0); self.assertEqual(limits['semantic_revision_by_check']['facts_check'],4)
         limits=resolve_retry_limits(snap,{})
         self.assertEqual(limits['output_repair_by_node']['facts'],1); self.assertEqual(limits['semantic_revision_by_check']['facts_check'],1)
-        rid=self.s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'Update'},developer=True,retry_overrides={'output_repair_retries':0})
+        rid=self.s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'letter_to_gp'},developer=True,retry_overrides={'output_repair_retries':0})
         frozen=deepcopy(self.s.store.run(rid)['retry_limits']); self.s.execution_defaults['output_repair_retries']=99
         self.assertEqual(self.s.store.run(rid)['retry_limits'],frozen)
 
@@ -102,7 +102,7 @@ class AuditAndRepairTests(Base):
 class AccountingAndStorageTests(Base):
     def test_usage_distinguishes_replay_self_provider_and_partial_reporting(self):
         rid,run=self.demo(); usage=self.s.inspect(rid)['usage']; self.assertEqual(usage['physical_calls'],0); self.assertGreater(usage['replay_calls'],0); self.assertIsNone(usage['usage']['totals']['total_tokens'])
-        rid=self.s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'Update'},developer=True); self.s.runner.advance(rid)
+        rid=self.s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'letter_to_gp'},developer=True); self.s.runner.advance(rid)
         first=self.s.inspect(rid)['usage']; second=self.s.inspect(rid)['usage']; self.assertEqual(first['self_handoffs'],1); self.assertEqual(first,second)
         synthetic=aggregate_usage(
             [{'operation_id':'o','request_id':'r1','node_id':'n','purpose':'initial'},{'operation_id':'o','request_id':'r2','node_id':'n','purpose':'output_repair'}],
@@ -111,21 +111,21 @@ class AccountingAndStorageTests(Base):
 
     def test_run_identity_and_authoritative_files(self):
         rid=generated_run_id('clinical_letter'); self.assertRegex(rid,r'^\d{8}T\d{12}Z_clinical_letter_[0-9a-f]{8}$')
-        rid=self.s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'Update'},developer=True)
+        rid=self.s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'letter_to_gp'},developer=True)
         folder=self.s.store.run_dir(rid); self.assertTrue((folder/'input.json').is_file()); self.assertTrue((folder/'run-config/resolved.json').is_file()); self.assertEqual(self.s.store.run(rid)['run_folder'],str(folder))
         before=self.s.inspect(rid)['inspection_revision']; self.s.store.event(rid,'synthetic_visible_event',{}); after=self.s.inspect(rid)['inspection_revision']; self.assertGreater(after,before)
 
     def test_crash_windows_mark_orphans_and_rebuild_derived_views(self):
         import localmedbot.storage as storage
         with TemporaryDirectory() as td:
-            s=Service(APPS,td,PROFILES,GUIDES,FIXTURES); rid=s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'Update'},developer=True); run=s.store.run(rid)
+            s=Service(APPS,td,PROFILES,GUIDES,FIXTURES); rid=s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'letter_to_gp'},developer=True); run=s.store.run(rid)
             original=storage._immutable_write
             def after_rename(path,text): original(path,text); raise OSError('fault after rename')
             with patch('localmedbot.storage._immutable_write',after_rename), self.assertRaises(OSError): s.store.commit(run,'synthetic',{'x':1},{})
             self.assertEqual([a for a in s.store.inspection_snapshot(rid)['artifact_history'] if a['id']=='synthetic'],[]); s.close()
             st=Store(td,writer=True,runs_root=Path(td)/'runs'); self.assertTrue((Path(td)/'startup-uncommitted-files.json').is_file()); st.close()
         with TemporaryDirectory() as td:
-            s=Service(APPS,td,PROFILES,GUIDES,FIXTURES); rid=s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'Update'},developer=True); run=s.store.run(rid)
+            s=Service(APPS,td,PROFILES,GUIDES,FIXTURES); rid=s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'letter_to_gp'},developer=True); run=s.store.run(rid)
             real=s.store.rebuild_derived
             with patch.object(s.store,'rebuild_derived',side_effect=OSError('after db commit')), self.assertRaises(OSError): s.store.commit(run,'synthetic',{'x':1},{})
             s.close(); st=Store(td,writer=True,runs_root=Path(td)/'runs'); self.assertEqual(st.artifact(rid,'synthetic')['payload'],{'x':1}); self.assertTrue((st.run_dir(rid)/'manifest.json').is_file()); st.close()
@@ -133,20 +133,20 @@ class AccountingAndStorageTests(Base):
     def test_startup_blocks_missing_committed_model_payload(self):
         with TemporaryDirectory() as td:
             s=Service(APPS,td,PROFILES,GUIDES,FIXTURES)
-            rid=s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'Update'},developer=True); s.runner.advance(rid)
+            rid=s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'letter_to_gp'},developer=True); s.runner.advance(rid)
             call=s.store.model_calls(rid)[0]; path=s.store.run_dir(rid)/call['request_path']; self.assertTrue(path.is_file()); path.unlink(); s.close()
             st=Store(td,writer=True,runs_root=Path(td)/'runs'); run=st.run(rid); self.assertEqual(run['status'],'blocked'); self.assertEqual(run['error']['code'],'storage_integrity_failure'); self.assertIn('explanation',run['error']); st.close()
 
     def test_pending_self_repair_survives_restart_without_recharging(self):
         with TemporaryDirectory() as td:
-            s=Service(APPS,td,PROFILES,GUIDES,FIXTURES); rid=s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'Update'},developer=True,retry_overrides={'output_repair_retries':3}); s.runner.advance(rid)
+            s=Service(APPS,td,PROFILES,GUIDES,FIXTURES); rid=s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'letter_to_gp'},developer=True,retry_overrides={'output_repair_retries':3}); s.runner.advance(rid)
             first=s.self_handoff(rid); s.self_submit(rid,{'contract_version':first['contract_version'],'request_id':first['request_id'],'content':'{broken'})
             repair=s.self_handoff(rid); before=(repair['request_id'],repair['repair_ordinal'],len(s.store.repairs(rid)),len(s.store.model_calls(rid))); s.close()
             s2=Service(APPS,td,PROFILES,GUIDES,FIXTURES); self.addCleanup(s2.close); resumed=s2.self_handoff(rid); after=(resumed['request_id'],resumed['repair_ordinal'],len(s2.store.repairs(rid)),len(s2.store.model_calls(rid)))
             self.assertEqual(before,after); self.assertEqual(resumed['purpose'],'output_repair'); self.assertEqual(resumed['repair_feedback'],repair['repair_feedback'])
 
     def test_persisted_error_presentation_is_historical_and_legacy_fallback_is_labelled(self):
-        rid=self.s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'Update'},developer=True)
+        rid=self.s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'letter_to_gp'},developer=True)
         run=self.s.store.run(rid); stored=present_error(Fault('invalid_input'),stage='facts',attempt=1); run['error']=deepcopy(stored); self.s.store.put_run(run)
         with patch.dict('localmedbot.errors._PRESENTATIONS',{'invalid_input':('Changed later','Changed remedy')},clear=False):
             self.assertEqual(self.s.inspect(rid)['current_error']['explanation'],stored['explanation'])

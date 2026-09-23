@@ -1,5 +1,5 @@
 from __future__ import annotations
-import argparse,getpass,json,sys,uuid,yaml
+import argparse,getpass,json,sys,uuid,yaml,webbrowser
 from pathlib import Path
 from . import __version__
 from .contracts import Fault
@@ -8,6 +8,32 @@ from .profiles import classify_destination
 from .errors import present_error
 from .paths import RuntimePaths
 from .relocation import relocate_legacy
+
+def serve_local(service,port=8765,open_browser=True):
+    from werkzeug.serving import WSGIRequestHandler,make_server
+    from .web import create_app
+    class QuietRequestHandler(WSGIRequestHandler):
+        def log_request(self,code='-',size='-'):
+            try: successful=int(str(code).split()[0])<400
+            except (TypeError,ValueError): successful=False
+            if not successful: super().log_request(code,size)
+    app=create_app(service)
+    try:
+        server=make_server('127.0.0.1',port,app,threaded=True,request_handler=QuietRequestHandler)
+    except BaseException:
+        app.extensions['localmedbot_pool'].shutdown(wait=True)
+        raise
+    url=f'http://127.0.0.1:{server.server_port}'
+    print(f'localMedBot {__version__}\n{url}\nPress Ctrl-C to stop.',flush=True)
+    try:
+        if open_browser:
+            try:
+                if not webbrowser.open(url): print('Browser did not open; use the URL above.',file=sys.stderr,flush=True)
+            except Exception:
+                print('Browser did not open; use the URL above.',file=sys.stderr,flush=True)
+        server.serve_forever()
+    finally:
+        server.server_close(); app.extensions['localmedbot_pool'].shutdown(wait=True)
 
 
 def _json_file(path): return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -50,7 +76,7 @@ def main(argv=None):
     fx=sub.add_parser("fixtures"); fxs=fx.add_subparsers(dest="fixtures_command",required=True); q=fxs.add_parser("capture"); q.add_argument("run_id"); q.add_argument("--node",required=True); q.add_argument("--attempt",type=int,required=True); q.add_argument("--output",required=True); q=fxs.add_parser("promote"); q.add_argument("file"); q.add_argument("--id",required=True); q.add_argument("--version",type=int,required=True); q.add_argument("--suitability",required=True); q.add_argument("--acknowledge-reviewed",action="store_true"); q.add_argument("--actor",required=True)
     sf=sub.add_parser("self"); sfs=sf.add_subparsers(dest="self_command",required=True); q=sfs.add_parser("export"); q.add_argument("run_id"); q.add_argument("--output",required=True); q=sfs.add_parser("submit"); q.add_argument("run_id"); q.add_argument("--response",required=True)
     rl=sub.add_parser("relocate"); rl.add_argument("--source",default=".localmedbot")
-    sv=sub.add_parser("serve"); sv.add_argument("--port",type=int,default=8765)
+    sv=sub.add_parser("serve"); sv.add_argument("--port",type=int,default=8765); sv.add_argument("--no-browser",action="store_true")
     a=p.parse_args(argv); service=None
     try:
         if a.command=="relocate":
@@ -113,11 +139,10 @@ def main(argv=None):
                 doc=service.self_handoff(a.run_id); Path(a.output).write_text(json.dumps(doc,ensure_ascii=False,indent=2),encoding="utf-8"); result={"output":a.output}
             else: result=service.self_submit(a.run_id,_json_file(a.response))
         else:
-            from .web import create_app
-            create_app(service).run(host="127.0.0.1",port=a.port,debug=False,threaded=True); return 0
+            serve_local(service,a.port,not a.no_browser); return 0
         print(json.dumps(result,ensure_ascii=False,indent=2)); return 1 if isinstance(result,dict) and result.get("status") in {"failed","blocked"} else 0
     except (Fault,OSError,ValueError,KeyError) as exc:
         print(json.dumps({"error":present_error(exc)},ensure_ascii=False),file=sys.stderr); return 1
     finally:
-        if service is not None and a.command!="serve": service.close()
+        if service is not None: service.close()
 if __name__=="__main__": raise SystemExit(main())

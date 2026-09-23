@@ -1,0 +1,12 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "type":"object","required":["document","provenance"],"additionalProperties":false,
+  "properties":{
+    "document":{"type":"string","minLength":1},
+    "provenance":{"type":"array","maxItems":400,"items":{"type":"object","required":["passage","fact_ids","evidence_refs"],"additionalProperties":false,"properties":{
+      "passage":{"type":"string","minLength":1},
+      "fact_ids":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","minLength":1}},
+      "evidence_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"object","required":["corpus_id","evidence_id"],"additionalProperties":false,"properties":{"corpus_id":{"type":"string"},"evidence_id":{"type":"string"}}}}
+    }}}
+  }
+}

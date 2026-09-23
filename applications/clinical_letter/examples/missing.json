@@ -1,6 +1,6 @@
 {
   "input": {
-    "purpose": "Update the referring clinician",
+    "purpose": "letter_to_gp",
     "sources": [
       {
         "id": "record",
@@ -108,18 +108,22 @@
     ],
     "draft": [
       {
-        "title": "Clinical letter — synthetic example",
-        "claims": [
+        "document": "Dear GP,\n\nSynthetic patient reports intermittent fatigue. The record does not document a current medication list.\n\nYours sincerely",
+        "provenance": [
           {
-            "id": "F1",
-            "text": "Synthetic patient reports intermittent fatigue.",
+            "passage": "Synthetic patient reports intermittent fatigue.",
+            "fact_ids": [
+              "F1"
+            ],
             "evidence_refs": {
               "$input": "source.facts.0.evidence_refs"
             }
           },
           {
-            "id": "F2",
-            "text": "The record does not document a current medication list.",
+            "passage": "The record does not document a current medication list.",
+            "fact_ids": [
+              "F2"
+            ],
             "evidence_refs": {
               "$input": "source.facts.1.evidence_refs"
             }
@@ -127,18 +131,22 @@
         ]
       },
       {
-        "title": "Clinical letter — synthetic example",
-        "claims": [
+        "document": "Dear GP,\n\nSynthetic patient reports intermittent fatigue. The record does not document a current medication list.\n\nYours sincerely",
+        "provenance": [
           {
-            "id": "F1",
-            "text": "Synthetic patient reports intermittent fatigue.",
+            "passage": "Synthetic patient reports intermittent fatigue.",
+            "fact_ids": [
+              "F1"
+            ],
             "evidence_refs": {
               "$input": "source.facts.0.evidence_refs"
             }
           },
           {
-            "id": "F2",
-            "text": "The record does not document a current medication list.",
+            "passage": "The record does not document a current medication list.",
+            "fact_ids": [
+              "F2"
+            ],
             "evidence_refs": {
               "$input": "source.facts.1.evidence_refs"
             }
@@ -146,18 +154,22 @@
         ]
       },
       {
-        "title": "Clinical letter — synthetic example",
-        "claims": [
+        "document": "Dear GP,\n\nSynthetic patient reports intermittent fatigue. The record does not document a current medication list.\n\nYours sincerely",
+        "provenance": [
           {
-            "id": "F1",
-            "text": "Synthetic patient reports intermittent fatigue.",
+            "passage": "Synthetic patient reports intermittent fatigue.",
+            "fact_ids": [
+              "F1"
+            ],
             "evidence_refs": {
               "$input": "source.facts.0.evidence_refs"
             }
           },
           {
-            "id": "F2",
-            "text": "The record does not document a current medication list.",
+            "passage": "The record does not document a current medication list.",
+            "fact_ids": [
+              "F2"
+            ],
             "evidence_refs": {
               "$input": "source.facts.1.evidence_refs"
             }

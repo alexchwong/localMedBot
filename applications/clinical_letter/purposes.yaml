@@ -1,0 +1,17 @@
+default: letter_to_gp
+options:
+  - id: letter_to_gp
+    label: Letter to GP
+    instructions: Write a concise letter to the GP with a salutation and coherent clinical paragraphs. Do not invent a recipient or signature.
+  - id: outgoing_referral
+    label: Outgoing referral
+    instructions: Write a referral describing the documented reason and relevant history. Do not invent a referral destination or requested intervention.
+  - id: operation_report
+    label: Operation report
+    instructions: Write an operation report using appropriate headings for documented procedure, findings and course. Do not invent operative details.
+  - id: medical_certificate
+    label: Medical certificate
+    instructions: Write a concise medical certificate using only documented dates, assessment and limitations. Do not invent certification findings.
+  - id: discharge_transfer_summary
+    label: Discharge/transfer summary
+    instructions: Write a discharge or transfer summary covering documented presentation, care, status and follow-up. Do not invent disposition.

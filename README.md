@@ -4,7 +4,7 @@ localMedBot is a localhost clinical-workflow prototype with bounded model reason
 
 The repository currently provides two workflows:
 
-- **Clinical letter** — paste free-text clinical notes and a communication purpose; extract source-linked facts, independently check them, draft one claim per included fact, recheck, render, and review.
+- **Clinical letter** — select a configured document purpose, paste clinical notes, extract and check source-linked facts, draft the complete communication with internal passage provenance, independently check it, and review it. Internal clinical-note references are not displayed as citations.
 - **Guideline QA** — select an independently versioned guideline set, ask a free-text question, use bounded lexical search/read reasoning, assess evidence, preserve conflicting guideline alternatives, render citations, and review.
 
 The authoritative product version and release permission live in `src/localmedbot/version.json`. See `docs/versioning.md`.
@@ -33,7 +33,7 @@ py -3 -m venv .env
 .env\Scripts\localmedbot.exe serve
 ```
 
-`localmedbot check` compiles the bundled applications and reports `{"status": "valid", ...}`; `localmedbot serve` starts the single-user application on <http://127.0.0.1:8765> (`--port` changes it).
+`localmedbot check` compiles the bundled applications and reports `{"status": "valid", ...}`; `localmedbot serve` binds the single-user application to loopback at <http://127.0.0.1:8765>, prints the URL and opens the default browser after binding. Use `--no-browser` to open it manually; `--port` changes the port. Successful browser traffic is not logged, but HTTP failures are reported.
 
 Runtime locations are centralized and default relative to the launch directory: mutable shared state in `state/`, per-run immutable evidence in `runs/<run-id>/`, execution defaults in `config/`, reviewed fixtures in `tests/fixtures/`, and unreviewed scratch fixtures in `tests/fixtures/scratch/`. `--data` is retained as an alias for the shared state root; `--runs-root` and `--config-root` override the other runtime roots. An existing legacy `.localmedbot` is never silently ignored: run the explicit `localmedbot relocate` operation first.
 
@@ -80,7 +80,7 @@ The supported distribution retains source-tree application, model-profile, guide
 
 ## Developer mode
 
-The top-level Clinical / Developer workspace switch preserves the selected run and clinical input. Developer mode exposes run-wide output-repair and semantic-revision overrides, self handoffs, resolved contracts, development guideline selection/import, and a one-step tester with scratch/captured fixtures. See `docs/DEVEL.md`, `docs/self-execution.md`, `docs/fixtures.md`, `docs/versioning.md`, and `docs/upgrade-0.1.0.md`.
+The single workspace selector synchronises Clinical/Developer display with backend session access. Both workspaces have input/configuration, execution/progress and tabbed frozen run Input/Output panes. Developer mode exposes full workflow execution, run-wide output-repair and semantic-revision overrides, JSON/YAML inspection, self handoffs, development guideline selection/import, and a one-step tester with scratch/captured fixtures. See `docs/DEVEL.md`, `docs/self-execution.md`, `docs/fixtures.md`, `docs/versioning.md`, and `docs/upgrade-0.1.0.md`.
 
 Developer-only commands (`profiles import-legacy`, `guidelines import`/`promote`, `steps`, `fixtures`, `self`) require the `--developer` flag.
 

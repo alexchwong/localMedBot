@@ -21,6 +21,13 @@ def artifact_ref(ref,node_ids):
 def load_application(root,registry):
     root=Path(root); manifest=yaml.safe_load(asset(root,"application.yaml").read_text(encoding="utf-8"))
     workflow=yaml.safe_load(asset(root,manifest["workflow"]).read_text(encoding="utf-8")); policy=yaml.safe_load(asset(root,manifest["policy"]).read_text(encoding="utf-8"))
+    purposes=None
+    if manifest.get("purposes"):
+        purposes=yaml.safe_load(asset(root,manifest["purposes"]).read_text(encoding="utf-8"))
+        options=purposes.get("options") if isinstance(purposes,dict) else None
+        if not isinstance(options,list) or not options or any(not isinstance(x,dict) or not all(isinstance(x.get(k),str) and x[k].strip() for k in ("id","label","instructions")) for x in options): raise Fault("invalid_purpose_configuration")
+        ids=[x["id"] for x in options]
+        if len(ids)!=len(set(ids)) or purposes.get("default") not in ids: raise Fault("invalid_purpose_configuration")
     # The current product version has one authored authority: version.json.
     manifest["version"]=__version__
     for include in workflow.pop("includes",[]):
@@ -35,6 +42,7 @@ def load_application(root,registry):
             if isinstance(node.get(key),str): node[key]=json.loads(asset(root,node[key]).read_text(encoding="utf-8"))
         node["model_dependent"]=bool(node.get("model_dependent",registry.get(node["module"]).model_dependent))
     result={"manifest":manifest,"workflow":workflow,"policy":policy}
+    if purposes: result["purposes"]=purposes
     return compile_workflow(result,registry)
 
 def compile_workflow(snapshot,registry):

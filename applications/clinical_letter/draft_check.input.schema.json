@@ -5,41 +5,48 @@
     "target",
     "source",
     "task",
-    "omission_policy"
+    "omission_policy",
+    "genre"
   ],
   "additionalProperties": false,
   "properties": {
     "target": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",
       "required": [
-        "title",
-        "claims"
+        "document",
+        "provenance"
       ],
       "additionalProperties": false,
       "properties": {
-        "title": {
+        "document": {
           "type": "string",
           "minLength": 1
         },
-        "claims": {
+        "provenance": {
           "type": "array",
-          "maxItems": 200,
+          "maxItems": 400,
           "items": {
             "type": "object",
             "required": [
-              "id",
-              "text",
+              "passage",
+              "fact_ids",
               "evidence_refs"
             ],
             "additionalProperties": false,
             "properties": {
-              "id": {
+              "passage": {
                 "type": "string",
                 "minLength": 1
               },
-              "text": {
-                "type": "string",
-                "minLength": 1
+              "fact_ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
               },
               "evidence_refs": {
                 "type": "array",
@@ -54,12 +61,10 @@
                   "additionalProperties": false,
                   "properties": {
                     "corpus_id": {
-                      "type": "string",
-                      "minLength": 1
+                      "type": "string"
                     },
                     "evidence_id": {
-                      "type": "string",
-                      "minLength": 1
+                      "type": "string"
                     }
                   }
                 }
@@ -260,6 +265,29 @@
         "object",
         "null"
       ]
+    },
+    "genre": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "instructions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instructions": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     }
   }
 }

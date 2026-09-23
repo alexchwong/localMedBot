@@ -1,0 +1,229 @@
+{
+  "fixture_schema_version": 1,
+  "id": "clinical_letter.draft.document_standard",
+  "version": 2,
+  "workflow_id": "clinical_letter",
+  "node_id": "draft",
+  "step_contract_version": 1,
+  "resolved_inputs": {
+    "omission_policy": {
+      "extraction_revision": null,
+      "omitted_fact_ids": [],
+      "reasons": {},
+      "review_event_id": null
+    },
+    "source": {
+      "facts": [
+        {
+          "evidence_refs": [
+            {
+              "corpus_id": "fixture-clinical-record-v1",
+              "evidence_id": "record:0:0"
+            }
+          ],
+          "id": "F1",
+          "qualifiers": {},
+          "text": "Synthetic patient reports improved energy after the last visit."
+        },
+        {
+          "evidence_refs": [
+            {
+              "corpus_id": "fixture-clinical-record-v1",
+              "evidence_id": "record:1:0"
+            }
+          ],
+          "id": "F2",
+          "qualifiers": {},
+          "text": "Medication A remains documented as unchanged."
+        },
+        {
+          "evidence_refs": [
+            {
+              "corpus_id": "fixture-clinical-record-v1",
+              "evidence_id": "record:2:0"
+            }
+          ],
+          "id": "F3",
+          "qualifiers": {},
+          "text": "Follow-up review is planned in four weeks."
+        }
+      ],
+      "omission_suggestions": []
+    },
+    "task": {
+      "purpose": "Update the referring clinician",
+      "required_fact_ids": [
+        "F1",
+        "F2",
+        "F3"
+      ],
+      "sources": [
+        {
+          "content": {
+            "items": [
+              {
+                "id": "R1",
+                "indexes": {
+                  "kind": "note"
+                },
+                "text": "Synthetic patient reports improved energy after the last visit."
+              },
+              {
+                "id": "R2",
+                "indexes": {
+                  "kind": "note"
+                },
+                "text": "Medication A remains documented as unchanged."
+              },
+              {
+                "id": "R3",
+                "indexes": {
+                  "kind": "note"
+                },
+                "text": "Follow-up review is planned in four weeks."
+              }
+            ]
+          },
+          "format": "json",
+          "id": "record",
+          "title": "Synthetic clinical record"
+        }
+      ]
+    },
+    "genre": {
+      "id": "letter_to_gp",
+      "label": "Letter to GP",
+      "instructions": "Use a test-authored letter style."
+    }
+  },
+  "evidence_snapshots": [
+    {
+      "corpus_id": "fixture-clinical-record-v1",
+      "profile": {
+        "chunk_chars": 2000,
+        "default_indexes": {
+          "kind": "note"
+        },
+        "formats": [
+          "json",
+          "text",
+          "markdown"
+        ],
+        "indexes": {
+          "kind": {
+            "required": true,
+            "type": "string",
+            "values": [
+              "note",
+              "medication",
+              "follow_up"
+            ]
+          }
+        },
+        "item_schema": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "indexes": {
+              "type": "object"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "text",
+            "indexes"
+          ],
+          "type": "object"
+        },
+        "mode": "direct"
+      },
+      "sources": [
+        {
+          "content": {
+            "items": [
+              {
+                "id": "R1",
+                "indexes": {
+                  "kind": "note"
+                },
+                "text": "Synthetic patient reports improved energy after the last visit."
+              },
+              {
+                "id": "R2",
+                "indexes": {
+                  "kind": "note"
+                },
+                "text": "Medication A remains documented as unchanged."
+              },
+              {
+                "id": "R3",
+                "indexes": {
+                  "kind": "note"
+                },
+                "text": "Follow-up review is planned in four weeks."
+              }
+            ]
+          },
+          "format": "json",
+          "id": "record",
+          "title": "Synthetic clinical record"
+        }
+      ],
+      "items": [
+        {
+          "assertion_kind": "excerpt",
+          "id": "record:0:0",
+          "indexes": {
+            "kind": "note"
+          },
+          "locator": "/items/0",
+          "source": "record",
+          "text": "Synthetic patient reports improved energy after the last visit."
+        },
+        {
+          "assertion_kind": "excerpt",
+          "id": "record:1:0",
+          "indexes": {
+            "kind": "note"
+          },
+          "locator": "/items/1",
+          "source": "record",
+          "text": "Medication A remains documented as unchanged."
+        },
+        {
+          "assertion_kind": "excerpt",
+          "id": "record:2:0",
+          "indexes": {
+            "kind": "note"
+          },
+          "locator": "/items/2",
+          "source": "record",
+          "text": "Follow-up review is planned in four weeks."
+        }
+      ]
+    }
+  ],
+  "context": {
+    "feedback": null,
+    "review_decisions": []
+  },
+  "provenance": {
+    "source_run_id": null,
+    "source_node_attempt": null
+  },
+  "data_suitability": "synthetic",
+  "origins": {
+    "evidence": {
+      "fixture-clinical-record-v1": "synthetic",
+      "demo_input": "synthetic"
+    },
+    "revision_feedback": {},
+    "task_input": "synthetic"
+  }
+}

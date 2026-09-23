@@ -1,7 +1,7 @@
 """Local browser surface over the shared Service contract."""
 from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
-import secrets,uuid
+import secrets,uuid,logging
 from flask import Flask,request,jsonify,render_template,g,send_file
 from werkzeug.exceptions import HTTPException
 from .contracts import Fault
@@ -61,7 +61,9 @@ def create_app(service):
     def unexpected(exc):
         # Do not expose tracebacks or guess at a cause. The shared formatter
         # supplies a stable diagnostic reference for logs/support.
-        return jsonify(error=present_error(exc)),500
+        error=present_error(exc)
+        logging.getLogger('localmedbot.web').error('Unhandled HTTP application error (%s; %s)',type(exc).__name__,error.get('diagnostic_reference','unavailable'))
+        return jsonify(error=error),500
 
     @app.get("/")
     def home(): return render_template("index.html",token=session()["csrf"],version=__version__)

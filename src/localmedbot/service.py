@@ -43,6 +43,9 @@ class Service:
         rows=[]
         for p in sorted(self.apps.glob("*/application.yaml")):
             doc=yaml.safe_load(p.read_text(encoding="utf-8")); doc["version"]=__version__; rows.append(doc)
+            if doc.get("purposes"):
+                configured=self.load(doc["id"])["purposes"]
+                doc["purposes"]={"default":configured["default"],"options":[{"id":x["id"],"label":x["label"]} for x in configured["options"]]}
         return rows
     def root(self,app):
         matches=[p.parent for p in self.apps.glob("*/application.yaml") if yaml.safe_load(p.read_text(encoding="utf-8"))["id"]==app]
@@ -62,7 +65,7 @@ class Service:
             if workflow=="clinical_letter":
                 notes=data.get("notes"); purpose=data.get("purpose")
                 if not isinstance(notes,str) or not notes.strip() or not isinstance(purpose,str) or not purpose.strip(): raise Fault("invalid_input")
-                if len(notes)>30000 or len(purpose)>4000: raise Fault("input_too_large")
+                if len(notes)>30000: raise Fault("input_too_large")
                 value={"purpose":purpose,"sources":[{"id":"clinical_note","format":"text","title":"Clinical notes","content":notes}],"required_fact_ids":[]}
                 return value,None,{"task_input":"user_supplied","evidence":{"clinical_input":"user_supplied"},"revision_feedback":{}}
             question=data.get("question")
@@ -78,6 +81,10 @@ class Service:
         self.store.set_preference("selected_profile:"+workflow_id,profile_id)
         if profile["executor"]=="self" and not developer: raise Fault("developer_disabled")
         value,recording,origins=self._adapt_input(workflow_id,input_mode,input_data or {},example)
+        if snap.get("purposes"):
+            selected=next((x for x in snap["purposes"]["options"] if x["id"]==value.get("purpose")),None)
+            if selected is None: raise Fault("invalid_purpose")
+            snap["selected_purpose"]=deepcopy(selected)
         if origin_override: origins=deepcopy(origin_override)
         validate(value,snap["input_schema"]); corpora=[]
         if recording is not None:
@@ -121,6 +128,7 @@ class Service:
         if workflow not in {"clinical_letter","guideline_qa"}: raise Fault("legacy_workflow_unsupported")
         try:
             snap=self.load(workflow); validate(run.get("input"),snap["input_schema"])
+            if snap.get("purposes") and run.get("input",{}).get("purpose") not in {x["id"] for x in snap["purposes"]["options"]}: raise Fault("legacy_input_conversion_required")
         except Fault as exc:
             if exc.code in {"application_not_found"}: raise Fault("legacy_workflow_unsupported")
             raise Fault("legacy_input_conversion_required",findings=exc.findings) from None

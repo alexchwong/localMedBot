@@ -6,6 +6,8 @@ Copy an application directory, give its `application.yaml` a new ID/name/version
 
 A node declares an ID, registered module, dependencies, inputs, configuration and output JSON Schema. Schemas can be inline or paths. Prompt/template file contents are embedded at setup.
 
+Clinical Letter's `application.yaml` declares a `purposes.yaml` asset with a default and unique options (`id`, `label`, `instructions`). The service exposes labels/IDs to the browser but freezes the selected complete entry into the run snapshot; `draft` and `draft_check` bind `genre` to `run.snapshot.selected_purpose`. Its render node uses `document: true, user_citations: false`; corpus-backed Guideline QA uses `user_citations: true`. The draft's `document` and `provenance` mappings are distinct: mapped passages must occur in the document and preserve fact evidence; the independent check must assess the full prose as well.
+
 ```yaml
 nodes:
   - id: organise

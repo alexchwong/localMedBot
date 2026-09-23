@@ -55,7 +55,7 @@ class VersionAndProfileTests(Base):
     def test_persisted_contract_versions(self):
         # The product version is not a test constant; see docs/versioning.md.
         self.assertEqual((STORAGE_SCHEMA_VERSION,RUN_CONTRACT_VERSION,STEP_CONTRACT_VERSION),(2,1,1))
-        self.assertEqual(self.s.load('clinical_letter')['workflow']['version'],2)
+        self.assertEqual(self.s.load('clinical_letter')['workflow']['version'],3)
         self.assertEqual(self.s.load('guideline_qa')['workflow']['version'],2)
     def test_profiles_exist_and_filter(self):
         for workflow in ('clinical_letter','guideline_qa'):
@@ -78,7 +78,7 @@ class VersionAndProfileTests(Base):
     def test_reasoning_is_provider_validated_and_frozen_into_run(self):
         pid='clinical_letter.openrouter.default'
         self.s.configure_profile(pid,{'model':'fixture','settings':{'reasoning':'high'}},credential='fixture-token')
-        rid=self.s.start('clinical_letter',pid,'free_text',{'notes':'Synthetic note.','purpose':'Synthetic update'})
+        rid=self.s.start('clinical_letter',pid,'free_text',{'notes':'Synthetic note.','purpose':'letter_to_gp'})
         self.s.configure_profile(pid,{'model':'fixture','settings':{'reasoning':'low'}})
         run=self.s.store.run(rid)
         self.assertEqual(run['profile']['effective_roles']['writing']['reasoning'],'high')
@@ -108,7 +108,7 @@ class WorkflowTests(Base):
         for ex in ('standard','conflict','missing'):
             rid,r=self.demo('clinical_letter',ex); self.assertEqual(r['status'],'waiting_review'); self.assertIn('output',r['active'])
     def test_free_text_letter_input_preserved(self):
-        notes='Line one.\nUnicode αβ.\nNo fever was reported.'; purpose='Update clinician'
+        notes='Line one.\nUnicode αβ.\nNo fever was reported.'; purpose='letter_to_gp'
         # recorded may not be used for arbitrary text
         fault(self,'recorded_input_mismatch',self.s.start,'clinical_letter','clinical_letter.recorded.default','free_text',{'notes':notes,'purpose':purpose})
         rid=self.s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':notes,'purpose':purpose},developer=True)
@@ -142,7 +142,7 @@ class WorkflowTests(Base):
 
 class SelfTests(Base):
     def test_self_handoff_submission_and_duplicate(self):
-        rid=self.s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note: symptom improved.','purpose':'Update'},developer=True)
+        rid=self.s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note: symptom improved.','purpose':'letter_to_gp'},developer=True)
         r=self.s.runner.advance(rid); self.assertEqual(r['status'],'waiting_model')
         h=self.s.self_handoff(rid); self.assertEqual(h['node_id'],'facts'); self.assertIn('messages',h); self.assertIn('output_schema',h)
         content=json.dumps({'facts':[{'id':'F1','text':'Symptom improved.','evidence_refs':[{'corpus_id':r['corpora'][0],'evidence_id':'clinical_note:0:0'}],'qualifiers':{}}],'omission_suggestions':[]})
@@ -151,7 +151,7 @@ class SelfTests(Base):
         fault(self,'response_already_submitted',self.s.model_steps.submit,rid,{**env,'content':'{}'})
         nxt=self.s.runner.advance(rid); self.assertEqual(nxt['status'],'waiting_model'); self.assertNotEqual(self.s.self_handoff(rid)['request_id'],h['request_id'])
     def test_self_invalid_json_enters_repair(self):
-        rid=self.s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'Update'},developer=True)
+        rid=self.s.start('clinical_letter','clinical_letter.self.default','free_text',{'notes':'Synthetic note.','purpose':'letter_to_gp'},developer=True)
         self.s.runner.advance(rid); h=self.s.self_handoff(rid)
         self.s.model_steps.submit(rid,{'contract_version':1,'request_id':h['request_id'],'content':'{broken'})
         r=self.s.runner.advance(rid); self.assertEqual(r['status'],'waiting_model'); self.assertEqual(r['repair_counts']['facts'],1)
@@ -199,7 +199,7 @@ class FixtureTests(Base):
         rid,r=self.demo('clinical_letter','standard'); attempt=r['attempts']['draft']; doc=self.s.capture_fixture(rid,'draft',attempt)
         doc['id']=f'clinical_letter.draft.captured.{uuid.uuid4().hex[:8]}'; doc['version']=1; doc['data_suitability']='synthetic'
         # pair a tape with exactly this fixture and run just draft
-        draft_value={'title':'Fixture letter','claims':[{'id':f['id'],'text':f['text'],'evidence_refs':f['evidence_refs']} for f in doc['resolved_inputs']['source']['facts']]}
+        draft_value={'document':' '.join(f['text'] for f in doc['resolved_inputs']['source']['facts']),'provenance':[{'passage':f['text'],'fact_ids':[f['id']],'evidence_refs':f['evidence_refs']} for f in doc['resolved_inputs']['source']['facts']]}
         self.s.save_scratch_fixture(doc)
         tape={'tape_schema_version':1,'id':'draft.success','version':1,'workflow_id':'clinical_letter','node_id':'draft','step_contract_version':1,'fixture_ref':{'id':doc['id'],'version':1},'responses':[{'attempt':1,'call_index':1,'content':json.dumps(draft_value)}]}
         rid2=self.s.run_step('clinical_letter','draft',doc,'clinical_letter.recorded.default',tape=tape,developer=True)
@@ -364,7 +364,7 @@ class DeliveryHardeningTests(Base):
         original_ids={x['corpus_id'] for x in doc['evidence_snapshots']};self.s.delete(rid)
         with TemporaryDirectory() as td:
             other=Service(APPS,td,PROFILES,GUIDES,FIXTURES);self.addCleanup(other.close);other.save_scratch_fixture(doc)
-            draft={'title':'Fixture letter','claims':[{'id':f['id'],'text':f['text'],'evidence_refs':f['evidence_refs']} for f in doc['resolved_inputs']['source']['facts']]}
+            draft={'document':' '.join(f['text'] for f in doc['resolved_inputs']['source']['facts']),'provenance':[{'passage':f['text'],'fact_ids':[f['id']],'evidence_refs':f['evidence_refs']} for f in doc['resolved_inputs']['source']['facts']]}
             tape={'tape_schema_version':1,'id':'draft.portable','version':1,'workflow_id':'clinical_letter','node_id':'draft','step_contract_version':1,'fixture_ref':{'id':doc['id'],'version':1},'responses':[{'attempt':1,'call_index':1,'content':json.dumps(draft)}]}
             srid=other.run_step('clinical_letter','draft',doc,'clinical_letter.recorded.default',tape=tape,developer=True);done=other.runner.advance(srid);self.assertEqual(done['status'],'completed')
             self.assertTrue(set(done['corpora']).isdisjoint(original_ids));self.assertEqual(set(done['nodes']),{'draft'})

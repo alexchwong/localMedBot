@@ -1,0 +1,19 @@
+{
+  "tape_schema_version": 1,
+  "id": "clinical_letter.draft.document_success",
+  "version": 2,
+  "workflow_id": "clinical_letter",
+  "node_id": "draft",
+  "step_contract_version": 1,
+  "fixture_ref": {
+    "id": "clinical_letter.draft.document_standard",
+    "version": 2
+  },
+  "responses": [
+    {
+      "attempt": 1,
+      "call_index": 1,
+      "content": "{\"document\": \"Dear clinician,\\n\\nSynthetic patient reports improved energy after the last visit. Medication A remains documented as unchanged. Follow-up review is planned in four weeks.\\n\\nRegards\", \"provenance\": [{\"passage\": \"Synthetic patient reports improved energy after the last visit.\", \"fact_ids\": [\"F1\"], \"evidence_refs\": [{\"corpus_id\": \"fixture-clinical-record-v1\", \"evidence_id\": \"record:0:0\"}]}, {\"passage\": \"Medication A remains documented as unchanged.\", \"fact_ids\": [\"F2\"], \"evidence_refs\": [{\"corpus_id\": \"fixture-clinical-record-v1\", \"evidence_id\": \"record:1:0\"}]}, {\"passage\": \"Follow-up review is planned in four weeks.\", \"fact_ids\": [\"F3\"], \"evidence_refs\": [{\"corpus_id\": \"fixture-clinical-record-v1\", \"evidence_id\": \"record:2:0\"}]}]}"
+    }
+  ]
+}
